@@ -55,7 +55,7 @@ public class GitHubProxy {
 
     public List<Commit> getCommits(CommitRequestBody commitRequestBody) {
 
-        String url = "https://api.github.com/repos/{owner}/{repo}/commits?since={since}&until={until}&author={author}";
+        String url = "https://api.github.com/repos/{owner}/{repo}/commits?since={since}&until={until}&author={author}&per_page={per_page}";
 
         try {
 
@@ -70,6 +70,7 @@ public class GitHubProxy {
                     .routeParam("author", commitRequestBody.getCommitAuthor())
                     .routeParam("since", commitRequestBody.getSince())
                     .routeParam("until", commitRequestBody.getUntil())
+                    .routeParam("per_page","100")
                     .asObject(new GenericType<List<Commit>>() {
                     });
 

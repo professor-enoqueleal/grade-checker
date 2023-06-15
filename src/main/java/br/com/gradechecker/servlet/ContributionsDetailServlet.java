@@ -10,7 +10,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.TimeZone;
 
 @WebServlet("/contributions-detail")
 public class ContributionsDetailServlet extends HttpServlet {
@@ -59,27 +64,8 @@ public class ContributionsDetailServlet extends HttpServlet {
         String owner = httpServletRequest.getParameter("owner");
         String author = httpServletRequest.getParameter("author");
         String groupId = httpServletRequest.getParameter("groupId");
-
-        String march = null == httpServletRequest.getParameter("marco") ? "1" : httpServletRequest.getParameter("marco");
-
-        String since = "";
-        String until = "";
-
-        switch (march) {
-
-            case "1":
-                since = "2023-02-8T00:00:00Z";
-                until = "2023-03-15T23:59:00Z";
-                break;
-            case "2":
-                since = "2023-03-22T00:00:00Z";
-                until = "2023-04-26T23:59:00Z";
-                break;
-            case "3":
-                since = "2023-04-27T00:00:00Z";
-                until = "2023-05-31T23:59:00Z";
-                break;
-        }
+        String since = null == httpServletRequest.getParameter("date-since") ? "2023-02-1T00:00:00Z" : httpServletRequest.getParameter("date-since");
+        String until = null == httpServletRequest.getParameter("date-until") ? Instant.now().toString() : httpServletRequest.getParameter("date-until");
 
         return new CommitRequestBody(repository, owner, author, since, until, accessToken, groupId);
 

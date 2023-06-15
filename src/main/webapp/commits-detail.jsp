@@ -49,19 +49,18 @@
             </div>
         </div>
 
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="marco" id="marco-1" value="1">
-          <label class="form-check-label" for="marco-1">MARCO 1</label>
+        <div class="mb-3 row">
+            <label for="total-of-commits" class="col-sm-2 col-form-label">Since</label>
+            <div class="col-sm-3">
+                <input type="datetime-local" class="form-control" name="date-since" id="since" value="${since}">
+            </div>
         </div>
 
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="marco" id="marco-2" value="2">
-          <label class="form-check-label" for="marco-2">MARCO 2</label>
-        </div>
-
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="marco" id="marco-3" value="3">
-          <label class="form-check-label" for="marco-3">MARCO 3</label>
+        <div class="mb-3 row">
+            <label for="total-of-commits" class="col-sm-2 col-form-label">Until</label>
+            <div class="col-sm-3">
+                <input type="datetime-local" class="form-control" name="date-until" id="until" value="${until}">
+            </div>
         </div>
 
         <br>

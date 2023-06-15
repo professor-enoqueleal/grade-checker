@@ -21,7 +21,7 @@ INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VAL
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('fluencynow', 'https://github.com/vilacalima/fluencynow', 'vilacalima', 'fluencynow');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('zé mudança', 'https://github.com/WWAraujo/ZeMudanca', 'WWAraujo', 'ZeMudanca');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('estética e cosmetologia', 'https://github.com/ManoelVi/Projeto-integrador-3', 'ManoelVi', 'Projeto-integrador-3');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('suplementos', 'https://', '', '');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('suplementos', 'https://github.com/Projeto-Senac-22-24/PI3', 'Projeto-Senac-22-24', 'PI3');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('divulgação de eventos', 'https://github.com/RafaelEtec/pi_git', 'RafaelEtec', 'pi_git');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('barista master', 'https://github.com/MAGuima/CafeteriaBaristaMaster', 'MAGuima', 'CafeteriaBaristaMaster');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('loja de Camisa', 'https://github.com/danielNevesSilva/Loja-de-Camisa', 'danielNevesSilva', 'Loja-de-Camisa');

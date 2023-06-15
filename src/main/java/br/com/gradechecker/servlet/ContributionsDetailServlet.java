@@ -64,7 +64,7 @@ public class ContributionsDetailServlet extends HttpServlet {
         String owner = httpServletRequest.getParameter("owner");
         String author = httpServletRequest.getParameter("author");
         String groupId = httpServletRequest.getParameter("groupId");
-        String since = null == httpServletRequest.getParameter("date-since") ? "2023-02-1T00:00:00Z" : httpServletRequest.getParameter("date-since");
+        String since = null == httpServletRequest.getParameter("date-since") ? "2023-01-1T00:00:00Z" : httpServletRequest.getParameter("date-since");
         String until = null == httpServletRequest.getParameter("date-until") ? Instant.now().toString() : httpServletRequest.getParameter("date-until");
 
         return new CommitRequestBody(repository, owner, author, since, until, accessToken, groupId);

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+    <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Grade Checker | Group Detail</title>
+</head>
+<body>
+
+<main class="container">
+    <br>
+    <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/home">Home</a></li>
+        <li class="breadcrumb-item" aria-current="page"><a href="/detail?id=${groupId}">Group ${param.groupId}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Commits Detail</li>
+      </ol>
+    </nav>
+    <hr>
+
+    <h4>Commits Details</h4>
+
+    <form action="/contributions-detail" method="post">
+
+    <div class="details">
+
+        <div class="mb-3 row">
+            <label for="author" class="col-sm-2 col-form-label">Contributor Name:</label>
+            <div class="col-sm-10">
+                <input type="hidden" id="owner" name="owner" value="${param.owner}">
+                <input type="hidden" id="owner" name="repo" value="${param.repo}">
+                <input type="hidden" id="owner" name="groupId" value="${param.groupId}">
+                <input type="text" readonly class="form-control-plaintext" id="author" name="author" value="${author}">
+            </div>
+        </div>
+
+        <div class="mb-3 row">
+            <label for="total-of-commits" class="col-sm-2 col-form-label">Total of commits</label>
+            <div class="col-sm-10">
+                <input type="text" readonly class="form-control-plaintext" id="total-of-commits" value="${commits.size()}">
+            </div>
+        </div>
+
+        <div class="mb-3 row">
+            <label for="total-of-commits" class="col-sm-2 col-form-label">Period:</label>
+            <div class="col-sm-10">
+                <input type="text" readonly class="form-control-plaintext" id="total-of-commits" value="${since} / ${until}">
+            </div>
+        </div>
+
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="marco" id="marco-1" value="1">
+          <label class="form-check-label" for="marco-1">MARCO 1</label>
+        </div>
+
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="marco" id="marco-2" value="2">
+          <label class="form-check-label" for="marco-2">MARCO 2</label>
+        </div>
+
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="marco" id="marco-3" value="3">
+          <label class="form-check-label" for="marco-3">MARCO 3</label>
+        </div>
+
+        <br>
+
+        <button type="submit" class="btn btn-primary btn-sm">Refresh March</button>
+
+    <div>
+
+    </form>
+
+    <hr>
+
+    <c:if test = "${commits.size() == 0}">
+        <h4>No commits found for this period</h4>
+    </c:if>
+
+    <c:if test = "${commits.size() != 0}">
+        <table class="table table-borderless">
+            <thead>
+                <tr>
+                    <th scope="col">Message</th>
+                    <th scope="col">URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <c:forEach var="commit" items="${commits}">
+                    <tr>
+                        <td>${commit.commit.message}</td>
+                        <td><a href="${commit.htmlUrl}" target="_blank">${commit.htmlUrl}</a></td>
+                    </tr>
+                </c:forEach>
+            </tbody>
+        </table>
+    </c:if>
+
+</main>
+
+</body>
+</html>

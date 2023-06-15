@@ -1,0 +1,32 @@
+<web-app version="5.0"
+         xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd">
+
+    <display-name>Archetype Created Web Application</display-name>
+    <!--
+    <resource-env-ref>
+        <resource-env-ref-name>BeanManager</resource-env-ref-name>
+        <resource-env-ref-type>jakarta.enterprise.inject.spi.BeanManager</resource-env-ref-type>
+    </resource-env-ref>
+
+    <listener>
+        <listener-class>org.jboss.weld.environment.servlet.Listener</listener-class>
+    </listener>
+    -->
+    <listener>
+        <listener-class>org.h2.server.web.JakartaDbStarter</listener-class>
+    </listener>
+
+    <servlet>
+        <servlet-name>H2Console</servlet-name>
+        <servlet-class>org.h2.server.web.JakartaWebServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>H2Console</servlet-name>
+        <url-pattern>/console/*</url-pattern>
+    </servlet-mapping>
+
+</web-app>

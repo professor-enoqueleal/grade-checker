@@ -6,7 +6,12 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
 
-@WebFilter("/*")
+@WebFilter({
+        "/admin/*",
+        "/home/*",
+        "/detail/*",
+        "/contributions-detail/*"
+})
 public class AuthenticationFilter implements Filter {
 
     @Override
@@ -14,7 +19,7 @@ public class AuthenticationFilter implements Filter {
 
         HttpServletRequest httpServletRequest = (HttpServletRequest) servletRequest;
 
-        if (httpServletRequest.getRequestURI().contains("/credentials") || isUserLoggedOn(httpServletRequest)) {
+        if (httpServletRequest.getRequestURI().contains("/login") || isUserLoggedOn(httpServletRequest)) {
 
             filterChain.doFilter(servletRequest, servletResponse);
 

@@ -2,7 +2,6 @@ package br.com.gradechecker.servlet;
 
 import br.com.gradechecker.model.AccessToken;
 import br.com.gradechecker.proxy.AuthenticationProxy;
-import com.google.gson.Gson;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -15,8 +14,6 @@ import java.io.IOException;
 public class AuthenticationCallbackServlet extends HttpServlet {
 
     private AuthenticationProxy authenticationProxy;
-
-    private Gson gson;
 
     public AuthenticationCallbackServlet() {
         this.authenticationProxy = new AuthenticationProxy();

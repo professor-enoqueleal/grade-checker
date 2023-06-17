@@ -95,6 +95,10 @@
 
         <h6 class="border-bottom pb-2 mb-0">Log in</h6>
 
+        <div class="mb-6">
+            <span>${message}</span>
+        </div>
+
         <div class="d-flex text-body-secondary pt-3">
 
             <div class="mb-6">

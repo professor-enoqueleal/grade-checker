@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-bs-theme="auto">
 <head>
+    <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
     <script src="/js/color-modes.js"></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -91,13 +92,16 @@
 
 <main class="container">
 
+    <c:if test="${hasMessage == true}">
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          <strong>Attention!</strong> <span>${message}</span>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </c:if>
+
     <div class="my-3 p-3 bg-body rounded shadow-sm">
 
         <h6 class="border-bottom pb-2 mb-0">Log in</h6>
-
-        <div class="mb-6">
-            <span>${message}</span>
-        </div>
 
         <div class="d-flex text-body-secondary pt-3">
 

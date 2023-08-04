@@ -12,7 +12,8 @@ public class AuthenticationProxy {
 
     public AccessToken exchangeCodePerToken(String code) {
 
-        String url = "https://github.com/login/oauth/access_token";
+        // String url = "https://github.com/login/oauth/access_token";
+        String url = "http://localhost:8089/login/oauth/access_token";
 
         try {
 

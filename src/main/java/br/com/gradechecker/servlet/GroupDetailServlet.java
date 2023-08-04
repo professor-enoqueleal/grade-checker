@@ -16,7 +16,7 @@ import java.util.List;
 @WebServlet("/detail")
 public class GroupDetailServlet extends HttpServlet {
 
-    private GroupRepository groupRepository;
+    private final GroupRepository groupRepository;
 
     public GroupDetailServlet() {
         this.groupRepository = new GroupRepository();

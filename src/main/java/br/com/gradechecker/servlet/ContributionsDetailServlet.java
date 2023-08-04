@@ -20,7 +20,7 @@ import java.util.TimeZone;
 @WebServlet("/contributions-detail")
 public class ContributionsDetailServlet extends HttpServlet {
 
-    private GitHubProxy gitHubProxy;
+    private final GitHubProxy gitHubProxy;
 
     public ContributionsDetailServlet() {
         this.gitHubProxy = new GitHubProxy();

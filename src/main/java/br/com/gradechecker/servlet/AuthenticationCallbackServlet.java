@@ -13,7 +13,7 @@ import java.io.IOException;
 @WebServlet("/callback")
 public class AuthenticationCallbackServlet extends HttpServlet {
 
-    private AuthenticationProxy authenticationProxy;
+    private final AuthenticationProxy authenticationProxy;
 
     public AuthenticationCallbackServlet() {
         this.authenticationProxy = new AuthenticationProxy();

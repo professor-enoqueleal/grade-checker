@@ -108,4 +108,35 @@ public class GroupRepository {
 
     }
 
+    public void create(Group group){
+
+        String SQLCommand = "INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES (?, ?, ?, ?);";
+
+        try {
+
+            Connection connection = DriverManager.getConnection("jdbc:h2:~/test", "sa", "sa");
+
+            logger.info("success in database connection");
+
+            PreparedStatement preparedStatement = connection.prepareStatement(SQLCommand);
+
+            preparedStatement.setString(1, group.getName());
+            preparedStatement.setString(2, group.getRepositoryUrl());
+            preparedStatement.setString(3, group.getOwner());
+            preparedStatement.setString(4, group.getRepository());
+
+            preparedStatement.execute();
+
+            logger.info("success in insert group on database");
+
+        } catch (Exception e) {
+
+            logger.error("Fail on SQL operation {}", e.getMessage());
+
+            throw new RuntimeException("Fail on SQL operation", e);
+
+        }
+
+    }
+
 }

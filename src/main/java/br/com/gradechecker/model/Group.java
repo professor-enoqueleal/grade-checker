@@ -12,6 +12,13 @@ public class Group {
 
     }
 
+    public Group(String name, String repositoryUrl, String owner, String repository) {
+        this.name = name;
+        this.repositoryUrl = repositoryUrl;
+        this.owner = owner;
+        this.repository = repository;
+    }
+
     public Group(long id, String name, String repositoryUrl, String owner, String repository) {
         this.id = id;
         this.name = name;

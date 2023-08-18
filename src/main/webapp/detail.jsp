@@ -20,36 +20,57 @@
 
     <h4>Group information</h4>
 
-    <div class="details">
-        <div class="mb-3 row">
-            <label for="groupName" class="col-sm-2 col-form-label">Group Name:</label>
-            <div class="col-sm-10">
-                <input type="text" readonly class="form-control-plaintext" id="groupName" value="${group.name}">
+    <div class="details row">
+
+        <div class="col">
+
+            <div class="mb-3 row">
+                <label for="groupName" class="col-sm-2 col-form-label">Group Name:</label>
+                <div class="col-sm-10">
+                    <input type="text" readonly class="form-control-plaintext" id="groupName" value="${group.name}">
+                </div>
             </div>
+            <div class="mb-3 row">
+                <label for="url" class="col-sm-2 col-form-label">URL:</label>
+                <div class="col-sm-10">
+                    <a href="${group.repositoryUrl}" class="form-control-plaintext" target="_blank">${group.repositoryUrl}</a>
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label for="owner" class="col-sm-2 col-form-label">Owner:</label>
+                <div class="col-sm-10">
+                    <input type="text" readonly class="form-control-plaintext" id="owner" value="${group.owner}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label for="repository" class="col-sm-2 col-form-label">Repository name:</label>
+                <div class="col-sm-10">
+                    <input type="text" readonly class="form-control-plaintext" id="repository" value="${group.repository}">
+                </div>
+            </div>
+
         </div>
-        <div class="mb-3 row">
-            <label for="url" class="col-sm-2 col-form-label">URL:</label>
-            <div class="col-sm-10">
-                <a href="${group.repositoryUrl}" class="form-control-plaintext" target="_blank">${group.repositoryUrl}</a>
+
+        <div class="col">
+
+            <div class="mb-3 row">
+                <label for="repository" class="col-sm-2 col-form-label">Number of contributors:</label>
+                <div class="col-sm-10">
+                    <input type="text" readonly class="form-control-plaintext" id="repository" value="${contributors.size()}">
+                </div>
             </div>
-        </div>
-        <div class="mb-3 row">
-            <label for="owner" class="col-sm-2 col-form-label">Owner:</label>
-            <div class="col-sm-10">
-                <input type="text" readonly class="form-control-plaintext" id="owner" value="${group.owner}">
+
+            <div class="mb-3 row">
+                <label for="members" class="col-sm-2 col-form-label">Number of members:</label>
+                <div class="col-sm-10">
+                    <input type="text" readonly class="form-control-plaintext" id="members" value="0">
+                </div>
             </div>
-        </div>
-        <div class="mb-3 row">
-            <label for="repository" class="col-sm-2 col-form-label">Repository name:</label>
-            <div class="col-sm-10">
-                <input type="text" readonly class="form-control-plaintext" id="repository" value="${group.repository}">
+
+            <div class="row">
+                <a href="#" class="col-form-label">Add a new member</a>
             </div>
-        </div>
-        <div class="mb-3 row">
-            <label for="repository" class="col-sm-2 col-form-label">Number of contributors:</label>
-            <div class="col-sm-10">
-                <input type="text" readonly class="form-control-plaintext" id="repository" value="${contributors.size()}">
-            </div>
+
         </div>
     <div>
 

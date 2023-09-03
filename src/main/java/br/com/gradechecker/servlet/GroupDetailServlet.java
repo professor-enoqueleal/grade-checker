@@ -4,6 +4,7 @@ import br.com.gradechecker.model.Contributor;
 import br.com.gradechecker.model.Group;
 import br.com.gradechecker.proxy.GitHubProxy;
 import br.com.gradechecker.repository.GroupRepository;
+import br.com.gradechecker.repository.MemberRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -18,8 +19,11 @@ public class GroupDetailServlet extends HttpServlet {
 
     private final GroupRepository groupRepository;
 
+    private final MemberRepository memberRepository;
+
     public GroupDetailServlet() {
         this.groupRepository = new GroupRepository();
+        this.memberRepository = new MemberRepository();
     }
 
     @Override
@@ -32,6 +36,7 @@ public class GroupDetailServlet extends HttpServlet {
         }
 
         Group group = groupRepository.getGroupDetail(Long.parseLong(groupId));
+        int totalOfMembers = memberRepository.findById(groupId);
 
         String accessToken = (String) httpServletRequest.getSession().getAttribute("accessToken");
 
@@ -39,6 +44,7 @@ public class GroupDetailServlet extends HttpServlet {
 
         httpServletRequest.setAttribute("group", group);
         httpServletRequest.setAttribute("contributors", contributors);
+        httpServletRequest.setAttribute("members", totalOfMembers);
 
         httpServletRequest.getRequestDispatcher("detail.jsp").forward(httpServletRequest, httpServletResponse);
 

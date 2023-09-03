@@ -19,8 +19,19 @@
 
     <h4>Groups</h4>
 
-    <div class="row row-cols-1 row-cols-md-3 mb-3">
+    <c:if test="${empty groups}">
+        <br>
+        <br>
+        <br>
+        <br>
+        <p class="text-center">No groups to show :(</p>
+        <br>
+        <div class="text-center">
+            <a href="/group/create">Create group!</a>
+        </div>
+    </c:if>
 
+    <div class="row row-cols-1 row-cols-md-3 mb-3">
         <c:forEach var="group" items="${groups}">
             <div class="col">
                 <div class="card mb-4 rounded-3 shadow-sm">

@@ -3,6 +3,8 @@
 <head>
     <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
     <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/webjars/jquery/3.7.1/jquery.min.js"></script>
+    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.min.js"></script>
     <meta charset="UTF-8">
     <title>Grade Checker | Group Detail</title>
 </head>
@@ -63,12 +65,12 @@
             <div class="mb-3 row">
                 <label for="members" class="col-sm-2 col-form-label">Number of members:</label>
                 <div class="col-sm-10">
-                    <input type="text" readonly class="form-control-plaintext" id="members" value="0">
+                    <input type="text" readonly class="form-control-plaintext" id="members" value="${members}">
                 </div>
             </div>
 
             <div class="row">
-                <a href="#" class="col-form-label">Add a new member</a>
+                <a href="#" class="col-form-label" data-bs-toggle="modal" data-bs-target="#exampleModal">Add a new member</a>
             </div>
 
         </div>
@@ -99,6 +101,55 @@
     </div>
 
 </main>
+
+<!-- init modal -->
+
+<!-- Modal -->
+<div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+
+    <form action="/member/create" method="post">
+
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="exampleModalLabel">Add group member</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                <!-- init modal body -->
+
+                    <div class="row">
+
+                        <input type="hidden" class="form-control" id="group-id" name="group-id" value="${param.id}">
+
+                        <div class="col">
+
+                            <div class="mb-6">
+                                <label for="user-name" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="user-name" name="user-name" required>
+                            </div>
+
+                        </div>
+
+                        <div class="col">
+                            <div class="mb-6">
+                                <label for="github-username" class="form-label">Github Username</label>
+                                <input type="text" class="form-control" id="github-username" name="github-username" required>
+                            </div>
+                         </div>
+
+                    </div>
+                <!-- end modal body -->
+
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+<!-- end modal -->
 
 </body>
 </html>

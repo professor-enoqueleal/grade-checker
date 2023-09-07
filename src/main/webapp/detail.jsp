@@ -26,27 +26,27 @@
 
         <div class="col">
 
-            <div class="mb-3 row">
-                <label for="groupName" class="col-sm-2 col-form-label">Group Name:</label>
-                <div class="col-sm-10">
+            <div class="mb-2 row">
+                <label for="groupName" class="col-sm-3 col-form-label">Group Name:</label>
+                <div class="col-sm-9">
                     <input type="text" readonly class="form-control-plaintext" id="groupName" value="${group.name}">
                 </div>
             </div>
-            <div class="mb-3 row">
-                <label for="url" class="col-sm-2 col-form-label">URL:</label>
-                <div class="col-sm-10">
+            <div class="mb-2 row">
+                <label for="url" class="col-sm-3 col-form-label">URL:</label>
+                <div class="col-sm-9">
                     <a href="${group.repositoryUrl}" class="form-control-plaintext" target="_blank">${group.repositoryUrl}</a>
                 </div>
             </div>
-            <div class="mb-3 row">
-                <label for="owner" class="col-sm-2 col-form-label">Owner:</label>
-                <div class="col-sm-10">
+            <div class="mb-2 row">
+                <label for="owner" class="col-sm-3 col-form-label">Owner:</label>
+                <div class="col-sm-9">
                     <input type="text" readonly class="form-control-plaintext" id="owner" value="${group.owner}">
                 </div>
             </div>
-            <div class="mb-3 row">
-                <label for="repository" class="col-sm-2 col-form-label">Repository name:</label>
-                <div class="col-sm-10">
+            <div class="mb-2 row">
+                <label for="repository" class="col-sm-3 col-form-label">Repository name:</label>
+                <div class="col-sm-9">
                     <input type="text" readonly class="form-control-plaintext" id="repository" value="${group.repository}">
                 </div>
             </div>
@@ -55,16 +55,16 @@
 
         <div class="col">
 
-            <div class="mb-3 row">
-                <label for="repository" class="col-sm-2 col-form-label">Number of contributors:</label>
-                <div class="col-sm-10">
+            <div class="mb-2 row">
+                <label for="repository" class="col-sm-4 col-form-label">Number of contributors:</label>
+                <div class="col-sm-8">
                     <input type="text" readonly class="form-control-plaintext" id="repository" value="${contributors.size()}">
                 </div>
             </div>
 
-            <div class="mb-3 row">
-                <label for="members" class="col-sm-2 col-form-label">Number of members:</label>
-                <div class="col-sm-10">
+            <div class="mb-2 row">
+                <label for="members" class="col-sm-4 col-form-label">Number of members:</label>
+                <div class="col-sm-8">
                     <input type="text" readonly class="form-control-plaintext" id="members" value="${members}">
                 </div>
             </div>
@@ -122,25 +122,19 @@
 
                         <input type="hidden" class="form-control" id="group-id" name="group-id" value="${param.id}">
 
-                        <div class="col">
-
-                            <div class="mb-6">
-                                <label for="user-name" class="form-label">Name</label>
-                                <input type="text" class="form-control" id="user-name" name="user-name" required>
-                            </div>
-
+                        <div class="mb-3">
+                            <label for="user-name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="user-name" name="user-name" required>
                         </div>
 
-                        <div class="col">
-                            <div class="mb-6">
-                                <label for="github-username" class="form-label">Github Username</label>
-                                <input type="text" class="form-control" id="github-username" name="github-username" required>
-                            </div>
-                         </div>
+                        <div class="mb-3">
+                            <label for="github-username" class="form-label">Github Username</label>
+                            <input type="text" class="form-control" id="github-username" name="github-username" required>
+                        </div>
 
                     </div>
-                <!-- end modal body -->
 
+                <!-- end modal body -->
                 </div>
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-primary">Save</button>

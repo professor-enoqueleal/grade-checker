@@ -20,10 +20,23 @@ CREATE TABLE MEMBERS(ID INT PRIMARY KEY AUTO_INCREMENT, NAME VARCHAR(255), GITHU
 
 --# TURMA C
 
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Calculadora nutricional para os alunos do Senac', 'https://github.com/RicardoCorpa/Projeto-Integrador-CalculadoraNutricional', 'RicardoCorpa', 'Projeto-Integrador-CalculadoraNutricional');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Site de Críticas de Jogos', 'https://github.com/ProjetoPiADS/GameRaters.git', 'ProjetoPiADS', 'GameRaters');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Site de receitas culinárias ', 'https://github.com/Igorgll/Perrito-Caliente.git', 'Igorgll', 'Perrito-Caliente');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Reciclagem', 'https://github.com/livamaral/ecoSenac.git', 'livamaral', 'ecoSenac');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Ecommerce de rótulos de vinho', 'https://github.com/Gusta-Enrico/aplicacao-web-e-commerce-de-vinho.git', 'Gusta-Enrico', 'aplicacao-web-e-commerce-de-vinho');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Clube dos Livros', 'https://github.com/Aphofinher/clube-dos-livros.git', 'Aphofinher', 'clube-dos-livros');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Mundo Aventura', 'https://github.com/Manda-Amanda/projeto-mundo-aventura.git', 'Manda-Amanda', 'projeto-mundo-aventura');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Calculadora nutricional para os alunos do Senac', 'https://github.com/RicardoCorpa/Projeto-Integrador-CalculadoraNutricional', 'RicardoCorpa', 'Projeto-Integrador-CalculadoraNutricional');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Site de Críticas de Jogos', 'https://github.com/ProjetoPiADS/GameRaters.git', 'ProjetoPiADS', 'GameRaters');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Site de receitas culinárias ', 'https://github.com/Igorgll/Perrito-Caliente.git', 'Igorgll', 'Perrito-Caliente');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Reciclagem', 'https://github.com/livamaral/ecoSenac.git', 'livamaral', 'ecoSenac');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Ecommerce de rótulos de vinho', 'https://github.com/Gusta-Enrico/aplicacao-web-e-commerce-de-vinho.git', 'Gusta-Enrico', 'aplicacao-web-e-commerce-de-vinho');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Clube dos Livros', 'https://github.com/Aphofinher/clube-dos-livros.git', 'Aphofinher', 'clube-dos-livros');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Mundo Aventura', 'https://github.com/Manda-Amanda/projeto-mundo-aventura.git', 'Manda-Amanda', 'projeto-mundo-aventura');
+
+--# TURMA D
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('site de investimentos', 'https://github.com/Junkeraaa/ProjetoIntegrador3-', 'Junkeraaa', 'ProjetoIntegrador3-');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('RPG', 'https://github.com/Gioh-Workplace/RPG', 'Gioh-Workplace', 'RPG');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('delivery para pizzaria', 'https://github.com/carlosgomessouza/Pizzaria-Senac', 'carlosgomessouza', 'Pizzaria-Senac');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('vestibulares', 'https://github.com/gcastroo21/fastbular.git', 'gcastroo21', 'fastbular');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('e-commerce', 'https://github.com/juansouzamd/e-commerce', 'juansouzamd', 'e-commerce');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('concessionária de carros', 'https://github.com/JoaoVCalcantara/Concessionaria', 'JoaoVCalcantara', 'Concessionaria');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('clínica ', 'https://github.com/gisellygenesis/Laboratorio-BioTest', 'gisellygenesis', 'Laboratorio-BioTest');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('reciclagem comunitaria', 'https://github.com/joaovitor022/Projeto-reciclagem-', 'joaovitor022', 'Projeto-reciclagem-');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('clínica veterinária', 'https://github.com/LaurianoCarlos/projeto-pi-clinica', 'LaurianoCarlos', 'projeto-pi-clinica');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('EduTech', 'https://github.com/lucasbarbosaalves/educaTech', 'lucasbarbosaalves', 'educaTech');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Social Pet', 'https://github.com/DevNylo/social-pet', 'DevNylo', 'social-pet');

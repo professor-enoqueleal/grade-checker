@@ -32,26 +32,27 @@
     </c:if>
 
     <div class="row row-cols-1 row-cols-md-3 mb-3">
-        <c:forEach var="group" items="${groups}">
-            <div class="col">
-                <div class="card mb-4 rounded-3 shadow-sm">
-                    <div class="card-header py-3 text-center">
-                        <h4 class="my-0 fw-normal">GRUPO ${group.id}</h4>
-                    </div>
-                    <div class="card-body">
-                        <label>Group Name:</label>
-                        <span>${group.name}</span>
-                        <br>
-                        <br>
-                        <label>Repository URL:</label>
-                        <span><a href="${group.repositoryUrl}" target="_blank">${group.name}</a></span>
-                        <br>
-                        <br>
-                        <a class="w-100 btn btn-lg btn-outline-primary" href="/detail?id=${group.id}" role="button">Details</a>
-                    </div>
-                </div>
+    
+      <c:forEach var="group" items="${groups}">
+    
+        <div class="col">
+          <div class="card" style="width: 20rem;">
+            <img class="card-img-top" src="/img/group.png" alt="Card image cap">
+            <div class="card-body text-center">
+              <h5 class="card-title">Group ${group.id}</h5>
             </div>
-        </c:forEach>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item"><b>Name:</b> ${group.name}</li>
+            </ul>
+            <div class="card-body text-center">
+              <a href="/detail?id=${group.id}" class="card-link">Details</a>
+            </div>
+          </div>
+          <br>
+        </div>
+    
+      </c:forEach>
+    
     </div>
   </main>
 <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.js"></script>

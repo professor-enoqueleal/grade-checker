@@ -43,7 +43,7 @@
         </div>
 
         <div class="mb-3 row">
-            <label for="period" class="col-sm-2 col-form-label">Period:</label>
+            <label for="period" class="col-sm-2 col-form-label">Select period:</label>
             <div class="col-sm-10">
                 <input type="text" readonly class="form-control-plaintext" id="period">
             </div>
@@ -52,20 +52,20 @@
         <div class="mb-3 row">
             <label for="since" class="col-sm-2 col-form-label">Since</label>
             <div class="col-sm-3">
-                <input type="datetime-local" class="form-control" name="date-since" id="since" value="${since}">
+                <input type="datetime-local" class="form-control" name="date-since" id="since" value="${since}" required>
             </div>
         </div>
 
         <div class="mb-3 row">
             <label for="until" class="col-sm-2 col-form-label">Until</label>
             <div class="col-sm-3">
-                <input type="datetime-local" class="form-control" name="date-until" id="until" value="${until}">
+                <input type="datetime-local" class="form-control" name="date-until" id="until" value="${until}" required>
             </div>
         </div>
 
         <br>
 
-        <button type="submit" class="btn btn-primary btn-sm">Refresh March</button>
+        <button type="submit" class="btn btn-primary btn-sm">Refresh period</button>
 
     <div>
 
@@ -81,6 +81,7 @@
         <table class="table table-borderless">
             <thead>
                 <tr>
+                    <th scope="col">Date</th>
                     <th scope="col">Message</th>
                     <th scope="col">URL</th>
                 </tr>
@@ -88,6 +89,7 @@
             <tbody>
                 <c:forEach var="commit" items="${commits}">
                     <tr>
+                        <td>${commit.commit.committer.date}</td>
                         <td>${commit.commit.message}</td>
                         <td><a href="${commit.htmlUrl}" target="_blank">${commit.htmlUrl}</a></td>
                     </tr>
@@ -98,36 +100,19 @@
 
 </main>
 
-    <script>
+<script src="/js/date-formatting.js"></script>
 
-        var isoDateSince = "${since}";
-        var isoDateUntil = "${until}";
+<script>
 
-        var dateSince = new Date(isoDateSince);
-        var dateUntil = new Date(isoDateUntil);
+    var isoDateSince = "${since}";
+    var isoDateUntil = "${until}";
 
-        var offset = +3;
-        var localDateSince = new Date(dateSince.getTime() - (offset * 60 * 60 * 1000));
-        var localDateUntil = new Date(dateUntil.getTime() - (offset * 60 * 60 * 1000));
+    var since = dateFormation(isoDateSince);
+    var until = dateFormation(isoDateUntil);
 
-        var daySince = String(localDateSince.getUTCDate()).padStart(2, '0');
-        var monthSince = String(localDateSince.getUTCMonth() + 1).padStart(2, '0');
-        var yearSince = localDateSince.getUTCFullYear();
-        var hoursSince = String(localDateSince.getUTCHours()).padStart(2, '0');
-        var minutesSince = String(localDateSince.getUTCMinutes()).padStart(2, '0');
+    document.getElementById("period").value = since + " to " + until;
 
-        var dayUntil = String(localDateUntil.getUTCDate()).padStart(2, '0');
-        var monthUntil = String(localDateUntil.getUTCMonth() + 1).padStart(2, '0'); 
-        var yearUntil = localDateUntil.getUTCFullYear();
-        var hoursUntil = String(localDateUntil.getUTCHours()).padStart(2, '0');
-        var minutesUntil = String(localDateUntil.getUTCMinutes()).padStart(2, '0');
-
-        var formattedDateSince = daySince + '/' + monthSince + '/' + yearSince + ' ' + hoursSince + ':' + minutesSince;
-        var formattedDateUntil = dayUntil + '/' + monthUntil + '/' + yearUntil + ' ' + hoursUntil + ':' + minutesUntil;
-
-        document.getElementById("period").value = formattedDateSince + " to " + formattedDateUntil;
-
-    </script>
+</script>
 
 </body>
 </html>

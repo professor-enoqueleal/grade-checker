@@ -2,7 +2,7 @@ package br.com.gradechecker.model;
 
 import java.util.List;
 
-public class ContributoResponseBody {
+public class ContributorResponseBody {
 
     private List<Contributor> contributors;
 

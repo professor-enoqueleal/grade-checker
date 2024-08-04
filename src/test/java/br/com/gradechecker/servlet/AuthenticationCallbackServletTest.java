@@ -3,27 +3,30 @@ package br.com.gradechecker.servlet;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpServletResponseWrapper;
+import jakarta.servlet.http.HttpSession;
 import org.junit.*;
-import org.mockito.Mockito;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 import java.io.IOException;
-import java.net.http.HttpClient;
-import java.net.http.HttpResponse;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 public class AuthenticationCallbackServletTest {
 
     HttpServletRequest httpServletRequest;
     HttpServletResponse httpServletResponse;
+    HttpSession httpSession;
 
     @Before
     public void init() {
-        httpServletRequest = Mockito.mock(HttpServletRequest.class);
-        httpServletResponse = Mockito.mock(HttpServletResponse.class);
+        httpServletRequest = mock(HttpServletRequest.class);
+        httpServletResponse = mock(HttpServletResponse.class);
+        httpSession = mock(HttpSession.class);
+        startMockServer();
     }
 
     @After
@@ -34,26 +37,30 @@ public class AuthenticationCallbackServletTest {
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(8089); // No-args constructor defaults to port 8080
 
+    @Rule
+    public EnvironmentVariables environmentVariablesRule = new EnvironmentVariables();
+
     @Test
-    public void test_null_string() throws ServletException, IOException {
+    public void test_method_authenticated_with_success() throws ServletException, IOException, InterruptedException {
 
-        mockServer();
+        environmentVariablesRule.set("GITHUB_BASE_URL", "http://localhost:8089");
+        environmentVariablesRule.set("GITHUB_CLIENT_ID", "XYZ");
+        environmentVariablesRule.set("GITHUB_CLIENT_SECRET", "1234");
 
-        AuthenticationCallbackServlet authenticationCallbackServlet = new AuthenticationCallbackServlet();
+        when(httpServletRequest.getParameter("code")).thenReturn("12345");
+        when(httpServletRequest.getSession()).thenReturn(httpSession);
 
-        Mockito.when(httpServletRequest.getParameter("code")).thenReturn("12345");
+        doNothing().when(httpSession).setAttribute(any(), anyString());
 
-        Mockito.doNothing().when(httpServletRequest).getSession().setAttribute("accessToken", Mockito.anyString());
+        new AuthenticationCallbackServlet().doGet(httpServletRequest, httpServletResponse);
 
-        authenticationCallbackServlet.doGet(httpServletRequest, httpServletResponse);
-
-        Mockito.verify(httpServletResponse).sendRedirect("/home");
+        verify(httpServletResponse).sendRedirect("/home");
 
         Assert.assertTrue(true);
 
     }
 
-    public void mockServer() {
+    public void startMockServer() {
 
         wireMockRule.start();
 
@@ -61,7 +68,7 @@ public class AuthenticationCallbackServletTest {
                 .withHeader("Accept", containing("application/json"))
                 .willReturn(ok()
                         .withHeader("Content-Type", "application/json")
-                        .withBodyFile("github.json")
+                        .withBodyFile("github_authenticated_with_success.json")
                 ));
 
     }

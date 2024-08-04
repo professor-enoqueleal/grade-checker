@@ -28,7 +28,8 @@
         <junit.version>4.13.1</junit.version>
         <mockito.version>5.4.0</mockito.version>
         <jquery.version>3.7.1</jquery.version>
-        <wiremock.version>2.35.0</wiremock.version>
+        <wiremock.version>2.35.1</wiremock.version>
+        <system.rules.version>1.19.0</system.rules.version>
     </properties>
 
     <dependencies>
@@ -96,14 +97,13 @@
             <version>${wiremock.version}</version>
             <scope>test</scope>
         </dependency>
-        <!--
+
         <dependency>
-            <groupId>uk.org.webcompere</groupId>
-            <artifactId>system-stubs-junit4</artifactId>
-            <version>1.1.0</version>
+            <groupId>com.github.stefanbirkner</groupId>
+            <artifactId>system-rules</artifactId>
+            <version>${system.rules.version}</version>
             <scope>test</scope>
         </dependency>
-        -->
 
         <dependency>
             <groupId>org.webjars</groupId>
@@ -135,6 +135,14 @@
                     <warSourceDirectory>src/main/webapp</warSourceDirectory>
                 </configuration>
                 -->
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M5</version>
+                <configuration>
+                    <argLine>--add-opens java.base/java.util=ALL-UNNAMED</argLine>
+                </configuration>
             </plugin>
         </plugins>
     </build>

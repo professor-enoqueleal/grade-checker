@@ -18,4 +18,12 @@ set GITHUB_CLIENT_SECRET=your-client-secret
 set GITHUB_BASE_URL=https://github.com
 ```
 
+## Set execution permissions
+
+To execute commands *maven wrapper*, permissions are necessary. To set permissions for execution, using this command:
+
+```shell
+$ chmod +x mvnw
+```
+
 --add-opens java.base/java.util=ALL-UNNAMED

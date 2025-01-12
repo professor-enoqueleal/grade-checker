@@ -30,9 +30,11 @@ public class BootstrapDatabaseServlet extends HttpServlet {
 
             Connection connection = DriverManager.getConnection("jdbc:h2:~/test", "sa", "sa");
 
+            logger.info("############ TRYING LOAD DATABASE TABLES ############");
+
             RunScript.execute(connection, new FileReader("src/main/resources/db.sql"));
 
-            logger.info("Success on load database tables");
+            logger.info("############ END LOAD DATABASE. TABLES LOADING WITH SUCCESS ############");
 
         } catch (Exception e) {
 

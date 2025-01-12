@@ -5,8 +5,31 @@
     <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <script src="/webjars/jquery/3.7.1/jquery.min.js"></script>
     <script src="/webjars/bootstrap/5.3.0/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <meta charset="UTF-8">
     <title>Grade Checker | Group Detail</title>
+    <style>
+        #loader {
+            display: none;
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .contributions-table {
+            margin-top: 85px;
+        }
+
+    </style>
 </head>
 <body>
 
@@ -58,14 +81,14 @@
             <div class="mb-2 row">
                 <label for="repository" class="col-sm-4 col-form-label">Number of contributors:</label>
                 <div class="col-sm-8">
-                    <input type="text" readonly class="form-control-plaintext" id="repository" value="${contributors.size()}">
+                    <input type="text" readonly class="form-control-plaintext" id="repository" value="${group.contributors.size()}">
                 </div>
             </div>
 
             <div class="mb-2 row">
                 <label for="members" class="col-sm-4 col-form-label">Number of members:</label>
                 <div class="col-sm-8">
-                    <input type="text" readonly class="form-control-plaintext" id="members" value="${members}">
+                    <input type="text" readonly class="form-control-plaintext" id="members" value="${group.totalOfMembers}">
                 </div>
             </div>
 
@@ -76,13 +99,11 @@
         </div>
     <div>
 
-    <hr>
-
     <h4>Contributors</h4>
 
     <div class="row row-cols-1 row-cols-md-3 mb-3">
 
-        <c:forEach var="contributor" items="${contributors}">
+        <c:forEach var="contributor" items="${group.contributors}">
             <div class="col">
                 <div class="card mb-4 rounded-3 shadow-sm" style="width: 18rem;">
                     <img src="${contributor.avatarUrl}" class="card-img-top" alt="...">
@@ -100,11 +121,55 @@
 
     </div>
 
+    <hr>
+    <!-- ajax content init here -->
+
+    <div class="text-center" id="loader"></div>
+
+    <div id="content">
+        <button id="loadDataButton" class="btn btn-primary">Load Dashboard</button>
+    </div>
+
+    <div class="row">
+
+        <div class="col-4">
+            <canvas id="contributorPierChart"></canvas>
+        </div>
+
+        <div class="col-8">
+
+          <table class="table table-hover contributions-table">
+            <thead>
+                <tr>
+                    <th scope="col">Author</th>
+                    <th scope="col">Commits</th>
+                    <th scope="col">Additions</th>
+                    <th scope="col">Deletions</th>
+                    <th scope="col">Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                <c:forEach var="contributor" items="${group.contributors}">
+                    <tr>
+                        <td>${contributor.login}</td>
+                        <td>${contributor.contributions}</td>
+                        <td>#</td>
+                        <td>#</td>
+                        <td>#</td>
+                    </tr>
+                </c:forEach>
+            </tbody>
+          </table>
+        </div>
+
+    <div>
+
+    <!-- ajax content end here -->
+
 </main>
 
 <!-- init modal -->
 
-<!-- Modal -->
 <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
 
     <form action="/member/create" method="post">
@@ -144,6 +209,82 @@
     </form>
 </div>
 <!-- end modal -->
+
+<script>
+        function loadData() {
+
+            // show loader
+            $("#loader").show();
+
+            axios.get('contributors-stats', {
+                params: {
+                    owner: '${group.owner}',
+                    repo: '${group.repository}'
+                }
+            })
+            .then(function(response) {
+                // hidden loader
+                $("#loader").hide();
+
+                // console.log('Message: ', response.data);
+
+                // show servlet returned content in the page
+                const returnedMessage = response.data.message;
+                let contentHtml = '<div class="text-center"><p>' + returnedMessage + '</p></div>';
+                $("#content").html(contentHtml);
+
+                // build dashboard to show
+                const stats = response.data.stats.consolidatedStats;
+                const labels = stats.map(stat => stat.author);
+                const data = stats.map(stat => stat.totalAdditions + stat.totalDeletions);
+
+                // show dashboard
+                const ctx = document.getElementById('contributorPierChart').getContext('2d');
+                const chartData = {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'],
+                        hoverBackgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                    }]
+                };
+
+                const contributorPierChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(tooltipItem) {
+                                        const value = chartData.datasets[0].data[tooltipItem.dataIndex];
+                                        const total = chartData.datasets[0].data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(2);
+                                        return value + ' (' + percentage + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+            })
+            .catch(function(error) {
+                $("#loader").hide();
+                $("#content").html("Error loading dynamic content!");
+                console.error("Error loading content:", error);
+            });
+        }
+
+        $(document).ready(function() {
+            $("#loadDataButton").click(loadData);
+        });
+
+    </script>
 
 </body>
 </html>

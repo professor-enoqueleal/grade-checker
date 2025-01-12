@@ -13,6 +13,8 @@ public class Commit {
     @SerializedName("html_url")
     private String htmlUrl;
 
+    @SerializedName("stats")
+    private Stats stats;
 
     public String getSha() {
         return sha;
@@ -38,4 +40,12 @@ public class Commit {
         this.htmlUrl = htmlUrl;
     }
 
+    public Stats getStats() {
+        return stats;
+    }
+
+    public void setStats(Stats stats) {
+        this.stats = stats;
+    }
+    
 }

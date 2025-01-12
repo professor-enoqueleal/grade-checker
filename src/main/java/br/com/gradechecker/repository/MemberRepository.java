@@ -44,7 +44,7 @@ public class MemberRepository {
 
     }
 
-    public int findById(String id) {
+    public int findById(Long id) {
 
         int totalOfMembers = 0;
 
@@ -58,7 +58,7 @@ public class MemberRepository {
 
             PreparedStatement preparedStatement = connection.prepareStatement(SQLCommand);
 
-            preparedStatement.setString(1, id);
+            preparedStatement.setLong(1, id);
 
             ResultSet resultSet = preparedStatement.executeQuery();
 

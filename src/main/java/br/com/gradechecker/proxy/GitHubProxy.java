@@ -3,6 +3,7 @@ package br.com.gradechecker.proxy;
 import br.com.gradechecker.model.Commit;
 import br.com.gradechecker.model.CommitRequestBody;
 import br.com.gradechecker.model.Contributor;
+import br.com.gradechecker.model.ContributorStats;
 import kong.unirest.GenericType;
 import kong.unirest.HttpResponse;
 import kong.unirest.Unirest;
@@ -14,6 +15,8 @@ import java.util.List;
 public class GitHubProxy {
 
     private final Logger logger = LogManager.getLogger(this.getClass());
+
+    private final String githubApiVersion = "2022-11-28";
 
 
     public GitHubProxy() {
@@ -64,13 +67,13 @@ public class GitHubProxy {
             HttpResponse<List<Commit>> responseEntity = Unirest.get(url)
                     .header("Accept", "application/json")
                     .header("Authorization", bearerToken)
-                    .header("X-GitHub-Api-Version", "2022-11-28")
+                    .header("X-GitHub-Api-Version", githubApiVersion)
                     .routeParam("owner", commitRequestBody.getOwner())
                     .routeParam("repo", commitRequestBody.getRepository())
                     .routeParam("author", commitRequestBody.getCommitAuthor())
                     .routeParam("since", commitRequestBody.getSince())
                     .routeParam("until", commitRequestBody.getUntil())
-                    .routeParam("per_page","100")
+                    .routeParam("per_page", "100")
                     .asObject(new GenericType<List<Commit>>() {
                     });
 
@@ -85,6 +88,79 @@ public class GitHubProxy {
             logger.error("Error on retrieve commits info. Cause: {}", e.getMessage());
 
             throw new RuntimeException("Error on retrieve commits info");
+
+        }
+
+    }
+
+    public Commit getCommitDetail(CommitRequestBody commitRequestBody, String sha) {
+
+        String url = "https://api.github.com/repos/{owner}/{repo}/commits/{sha}";
+
+        try {
+
+            String bearerToken = String.format("Bearer %s", commitRequestBody.getAccessToken());
+
+            HttpResponse<Commit> httpResponse = Unirest.get(url)
+                    .header("Accept", "application/json")
+                    .header("Authorization", bearerToken)
+                    .header("X-GitHub-Api-Version", githubApiVersion)
+                    .routeParam("owner", commitRequestBody.getOwner())
+                    .routeParam("repo", commitRequestBody.getRepository())
+                    .routeParam("sha", sha)
+                    .asObject(Commit.class);
+
+            httpResponse.getStatus();
+
+            logger.info("success on get github commit detail");
+
+            return httpResponse.getBody();
+
+        } catch (Exception e) {
+
+            logger.error("Error on retrieve commit detail. Cause: {}", e.getMessage());
+
+            throw new RuntimeException("Error on retrieve commit detail");
+
+        }
+
+    }
+
+    public List<ContributorStats> getContributorStats(CommitRequestBody commitRequestBody) {
+
+        String url = "https://api.github.com/repos/{owner}/{repo}/stats/contributors";
+
+        String bearerToken = String.format("Bearer %s", commitRequestBody.getAccessToken());
+
+        try {
+
+            HttpResponse<List<ContributorStats>> responseEntity = Unirest.get(url)
+                    .header("Accept", "application/json")
+                    .header("Authorization", bearerToken)
+                    .header("X-GitHub-Api-Version", githubApiVersion)
+                    .routeParam("owner", commitRequestBody.getOwner())
+                    .routeParam("repo", commitRequestBody.getRepository())
+                    .asObject(new GenericType<List<ContributorStats>>() {
+                    });
+
+            int httpStatusCode = responseEntity.getStatus();
+
+            if (httpStatusCode == 202) {
+                logger.warn("the http status code is: {}", httpStatusCode);
+                logger.warn("I will retry de http call to the github api");
+                getContributorStats(commitRequestBody);
+            }
+
+            logger.info("success on get github repository contributor stats");
+            logger.info("the http status code is: {}", httpStatusCode);
+
+            return responseEntity.getBody();
+
+        } catch (Exception e) {
+
+            logger.error("Error on retrieve contributor stats. Cause: {}", e.getMessage());
+
+            throw new RuntimeException("Error on retrieve contributor stats");
 
         }
 

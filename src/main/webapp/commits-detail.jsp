@@ -78,7 +78,7 @@
     </c:if>
 
     <c:if test = "${commits.size() != 0}">
-        <table class="table table-borderless">
+        <table class="table table-striped table-hover">
             <thead>
                 <tr>
                     <th scope="col">Date</th>
@@ -91,7 +91,7 @@
                     <tr>
                         <td>${commit.commit.committer.date}</td>
                         <td>${commit.commit.message}</td>
-                        <td><a href="${commit.htmlUrl}" target="_blank">${commit.htmlUrl}</a></td>
+                        <td><a href="${commit.htmlUrl}" target="_blank">${commit.sha}</a></td>
                     </tr>
                 </c:forEach>
             </tbody>

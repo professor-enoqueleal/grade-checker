@@ -1,5 +1,7 @@
 package br.com.gradechecker.model;
 
+import java.util.List;
+
 public class Group {
 
     private long id;
@@ -7,6 +9,8 @@ public class Group {
     private String repositoryUrl;
     private String owner;
     private String repository;
+    private List<Contributor> contributors;
+    private int totalOfMembers;
 
     public Group() {
 
@@ -25,6 +29,15 @@ public class Group {
         this.repositoryUrl = repositoryUrl;
         this.owner = owner;
         this.repository = repository;
+    }
+
+    public Group(long id, String name, String repositoryUrl, String owner, String repository, List<Contributor> contributors) {
+        this.id = id;
+        this.name = name;
+        this.repositoryUrl = repositoryUrl;
+        this.owner = owner;
+        this.repository = repository;
+        this.contributors = contributors;
     }
 
     public long getId() {
@@ -47,6 +60,14 @@ public class Group {
         return repository;
     }
 
+    public List<Contributor> getContributors() {
+        return contributors;
+    }
+
+    public int getTotalOfMembers() {
+        return totalOfMembers;
+    }
+
     public void setId(long id) {
         this.id = id;
     }
@@ -65,6 +86,14 @@ public class Group {
 
     public void setRepository(String repository) {
         this.repository = repository;
+    }
+
+    public void setContributors(List<Contributor> contributors) {
+        this.contributors = contributors;
+    }
+
+    public void setTotalOfMembers(int totalOfMembers) {
+        this.totalOfMembers = totalOfMembers;
     }
 
 }

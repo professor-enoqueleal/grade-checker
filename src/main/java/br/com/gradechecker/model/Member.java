@@ -2,10 +2,11 @@ package br.com.gradechecker.model;
 
 public class Member {
 
-    private String name;
-    private String gitHubUserName;
+    private final String name;
 
-    private String groupId;
+    private final String gitHubUserName;
+
+    private final String groupId;
 
     public Member(String name, String gitHubUserName, String groupId) {
         this.name = name;

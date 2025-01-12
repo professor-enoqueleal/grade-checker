@@ -46,6 +46,10 @@ public class ContributionsDetailServlet extends HttpServlet {
 
         List<Commit> commits = gitHubProxy.getCommits(commitRequestBody);
 
+//        gitHubProxy.getCommitDetail(commitRequestBody, "68a416045c81f91744602d8270ed012019182bb1");
+
+        gitHubProxy.getContributorStats(commitRequestBody);
+
         httpServletRequest.setAttribute("author", commitRequestBody.getCommitAuthor());
         httpServletRequest.setAttribute("commits", commits);
         httpServletRequest.setAttribute("since", commitRequestBody.getSince());

@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create an EC2 instance with Amazon Linux and Docker installed.
+
+Resources:
+
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.medium
+      ImageId: ami-0ac4dfaf1c5c0cce9
+      KeyName: srv-grade-checker
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum update -y
+          yum install docker -y
+          yum install java-devel -y
+          yum install git -y
+          yum install libxcrypt-compat -y
+          service docker start
+          usermod -a -G docker ec2-user
+          systemctl enable docker.service
+          
+          # Install Docker Compose
+          curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+      Tags:
+        - Key: Name
+          Value: ec2-grade-checker
+
+  InstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9200
+          ToPort: 9200
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5044
+          ToPort: 5044
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5601
+          ToPort: 5601
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 0.0.0.0/0

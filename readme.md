@@ -26,4 +26,13 @@ To execute commands *maven wrapper*, permissions are necessary. To set permissio
 $ chmod +x mvnw
 ```
 
+---
+
+## Configuração da JVM
+
+Para garantir que todos os módulos não-nomeados possam acessar o pacote `java.util`, adicione o 
+seguinte comando à configuração da JVM:
+
+```
 --add-opens java.base/java.util=ALL-UNNAMED
+```

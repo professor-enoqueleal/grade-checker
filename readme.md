@@ -1,5 +1,7 @@
 # Grade Checker
 
+![Build Status](https://github.com/professor-enoqueleal/grade-checker/actions/workflows/maven.yml/badge.svg)
+
 [Log4J Pattern Layout](https://logging.apache.org/log4j/1.2/apidocs/org/apache/log4j/PatternLayout.html)
 
 ## Setting environment variables for Linux

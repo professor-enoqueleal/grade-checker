@@ -82,20 +82,24 @@ public class ContributorsRepository {
 
             PreparedStatement preparedStatement = connection.prepareStatement(sqlCommand);
 
-            for (Contributor contributor : contributors) {
-                preparedStatement.setInt(1, contributor.getId());
-                preparedStatement.setString(2, contributor.getLogin());
-                preparedStatement.setString(3, contributor.getAvatarUrl());
-                preparedStatement.setString(4, contributor.getHtmlUrl());
-                preparedStatement.setInt(5, contributor.getContributions());
-                preparedStatement.setLong(6, groupId);
-                preparedStatement.addBatch();
+            if(null != contributors) {
+
+                for (Contributor contributor : contributors) {
+                    preparedStatement.setInt(1, contributor.getId());
+                    preparedStatement.setString(2, contributor.getLogin());
+                    preparedStatement.setString(3, contributor.getAvatarUrl());
+                    preparedStatement.setString(4, contributor.getHtmlUrl());
+                    preparedStatement.setInt(5, contributor.getContributions());
+                    preparedStatement.setLong(6, groupId);
+                    preparedStatement.addBatch();
+                }
+
+                preparedStatement.executeBatch();
+                connection.commit();
+
+                logger.info("success in insert member on database");
+
             }
-
-            preparedStatement.executeBatch();
-            connection.commit();
-
-            logger.info("success in insert member on database");
 
         } catch (Exception e) {
 

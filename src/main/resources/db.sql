@@ -11,12 +11,14 @@ CREATE TABLE CONTRIBUTORS(ID INT, LOGIN VARCHAR(255), AVATAR_URL VARCHAR(255), H
 
 --# | name | url | owner | repo
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('life-bf', 'https://github.com/fehhmont/LifeBF', 'fehhmont', 'LifeBF');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('TADS3D', 'https://github.com/affernanda/TADS3D', '', '');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('SENAC.Projeto-Integrador-3', 'https://github.com/MarceloAfonso-dev/SENAC.Projeto-Integrador-3', 'MarceloAfonso-dev', 'SENAC.Projeto-Integrador-3');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('cine-tech', 'https://github.com/Roymp3/cinetech', 'Roymp3', 'cinetech');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Projeto-Integrador-3-Sem', 'https://github.com/BrenoMS117/Projeto-Integrador-3-Sem', 'BrenoMS117', 'Projeto-Integrador-3-Sem');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Projeto_Integrador3', 'https://github.com/K4u4z/Projeto_Integrador3', 'K4u4z', 'Projeto_Integrador3');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Projeto_integrador3', 'https://github.com/leonardo10777/Projeto_integrador3', 'leonardo10777', 'Projeto_integrador3');
---INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('', '', '', '');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('sip-pair', 'https://github.com/affernanda/sip-pair.', 'affernanda', 'sip-pair.');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('goi-bankline', 'https://github.com/MarceloAfonso-dev/goi-bankline', 'MarceloAfonso', 'goi-bankline');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('cine-tech', 'https://github.com/Roymp3/CineTech', 'Roymp3', 'cinetech');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('papo-de-viagem', 'https://github.com/BrenoMS117/Project-Papo-de-Viagem', 'BrenoMS117', 'Project-Papo-de-Viagem');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('strong-forge', 'https://github.com/K4u4z/strong-forge', 'K4u4z', 'strong-forge');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('estudio-tatto', 'https://github.com/erikal21/estudio-tatto', 'erikal21', 'estudio-tatto');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('your-coaching', 'https://github.com/leonardo10777/your-coaching', 'leonardo10777', 'your-coaching');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('art-vision', 'https://github.com/Erickss509E/Art-Vision', 'Erickss509E', 'Art-Vision');
+
 --INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('', '', '', '');
 --INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('', '', '', '');

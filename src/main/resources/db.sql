@@ -19,6 +19,7 @@ INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VAL
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('estudio-tatto', 'https://github.com/erikal21/estudio-tatto', 'erikal21', 'estudio-tatto');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('your-coaching', 'https://github.com/leonardo10777/your-coaching', 'leonardo10777', 'your-coaching');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('art-vision', 'https://github.com/Erickss509E/Art-Vision', 'Erickss509E', 'Art-Vision');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('quotation', 'https://github.com/roMMarinho/Quotation', 'roMMarinho', 'Quotation');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('little-market', 'https://github.com/PIbnz/little-market', 'PIbnz', 'little-market');
 
---INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('', '', '', '');
 --INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('', '', '', '');

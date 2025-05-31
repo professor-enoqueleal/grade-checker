@@ -12,7 +12,7 @@ CREATE TABLE CONTRIBUTORS(ID INT, LOGIN VARCHAR(255), AVATAR_URL VARCHAR(255), H
 --# | name | url | owner | repo
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('life-bf', 'https://github.com/fehhmont/LifeBF', 'fehhmont', 'LifeBF');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('sip-pair', 'https://github.com/affernanda/sip-pair.', 'affernanda', 'sip-pair.');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('goi-bankline', 'https://github.com/MarceloAfonso-dev/goi-bankline', 'MarceloAfonso', 'goi-bankline');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('goi-bankline', 'https://github.com/MarceloAfonso-dev/goi-bankline', 'MarceloAfonso-dev', 'goi-bankline');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('cine-tech', 'https://github.com/Roymp3/CineTech', 'Roymp3', 'cinetech');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('papo-de-viagem', 'https://github.com/BrenoMS117/Project-Papo-de-Viagem', 'BrenoMS117', 'Project-Papo-de-Viagem');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('strong-forge', 'https://github.com/K4u4z/strong-forge', 'K4u4z', 'strong-forge');

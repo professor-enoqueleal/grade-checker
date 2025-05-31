@@ -39,17 +39,15 @@ public class GitHubProxy {
                     .asObject(new GenericType<List<Contributor>>() {
                     });
 
-            responseEntity.getStatus();
-
-            logger.info("success on get github repository information");
+            logger.info("success on get contributors information on github");
 
             return responseEntity.getBody();
 
         } catch (Exception e) {
 
-            logger.error("Error on retrieve contributors info. Cause: {}", e.getMessage());
+            logger.error("Error on retrieve contributors information on github. Cause: {}", e.getMessage());
 
-            throw new RuntimeException("Error on retrieve contributors info");
+            throw new RuntimeException("Error on retrieve contributors information on github");
 
         }
 
@@ -76,17 +74,15 @@ public class GitHubProxy {
                     .asObject(new GenericType<List<Commit>>() {
                     });
 
-            responseEntity.getStatus();
-
-            logger.info("success on get github repository information");
+            logger.info("success on get commits information");
 
             return responseEntity.getBody();
 
         } catch (Exception e) {
 
-            logger.error("Error on retrieve commits info. Cause: {}", e.getMessage());
+            logger.error("Error on retrieve commits information. Cause: {}", e.getMessage());
 
-            throw new RuntimeException("Error on retrieve commits info");
+            throw new RuntimeException("Error on retrieve commits information");
 
         }
 
@@ -109,17 +105,15 @@ public class GitHubProxy {
                     .routeParam("sha", sha)
                     .asObject(Commit.class);
 
-            httpResponse.getStatus();
-
-            logger.info("success on get github commit detail");
+            logger.info("success on get commits detail on github");
 
             return httpResponse.getBody();
 
         } catch (Exception e) {
 
-            logger.error("Error on retrieve commit detail. Cause: {}", e.getMessage());
+            logger.error("Error on retrieve commits detail on github. Cause: {}", e.getMessage());
 
-            throw new RuntimeException("Error on retrieve commit detail");
+            throw new RuntimeException("Error on retrieve commits detail on github");
 
         }
 
@@ -162,15 +156,15 @@ public class GitHubProxy {
 
             while (httpStatusCode == 202);
 
-            logger.info("success on get github repository contributor stats");
+            logger.info("success on get contributor stats on github");
 
             return responseEntity.getBody();
 
         } catch (Exception e) {
 
-            logger.error("Error on retrieve contributor stats. Cause: {}", e.getMessage());
+            logger.error("Error on retrieve contributor stats on github. Cause: {}", e.getMessage());
 
-            throw new RuntimeException("Error on retrieve contributor stats");
+            throw new RuntimeException("Error on retrieve contributor stats on github");
 
         }
 

@@ -97,6 +97,7 @@
             </div>
 
         </div>
+
     <div>
 
     <h4>Contributors</h4>
@@ -121,22 +122,9 @@
 
     </div>
 
-    <hr>
-    <!-- ajax content init here -->
-
-    <div class="text-center" id="loader"></div>
-
-    <div id="content">
-        <button id="loadDataButton" class="btn btn-primary">Load Dashboard</button>
-    </div>
-
     <div class="row">
 
-        <div class="col-4">
-            <canvas id="contributorPierChart"></canvas>
-        </div>
-
-        <div class="col-8">
+        <div class="col-12">
 
           <table class="table table-hover contributions-table">
             <thead>
@@ -161,6 +149,28 @@
             </tbody>
           </table>
         </div>
+
+    <div>
+
+    <hr>
+
+    <!-- ajax content init here -->
+
+    <div class="text-center" id="loader"></div>
+
+    <div id="content" class="text-center">
+        <button id="loadDataButton" class="btn btn-primary">Load Dashboard</button>
+    </div>
+
+    <div class="row">
+
+        <div class="col-3"></div>
+
+        <div class="col-6">
+            <canvas id="contributorPierChart"></canvas>
+        </div>
+
+        <div class="col-3"></div>
 
     <div>
 

@@ -18,7 +18,6 @@ public class GitHubProxy {
 
     private final String githubApiVersion = "2022-11-28";
 
-
     public GitHubProxy() {
 
     }
@@ -132,27 +131,38 @@ public class GitHubProxy {
 
         String bearerToken = String.format("Bearer %s", commitRequestBody.getAccessToken());
 
+        int httpStatusCode;
+
+        HttpResponse<List<ContributorStats>> responseEntity;
+
         try {
 
-            HttpResponse<List<ContributorStats>> responseEntity = Unirest.get(url)
-                    .header("Accept", "application/json")
-                    .header("Authorization", bearerToken)
-                    .header("X-GitHub-Api-Version", githubApiVersion)
-                    .routeParam("owner", commitRequestBody.getOwner())
-                    .routeParam("repo", commitRequestBody.getRepository())
-                    .asObject(new GenericType<List<ContributorStats>>() {
-                    });
+            do {
 
-            int httpStatusCode = responseEntity.getStatus();
+                responseEntity = Unirest.get(url)
+                        .header("Accept", "application/json")
+                        .header("Authorization", bearerToken)
+                        .header("X-GitHub-Api-Version", githubApiVersion)
+                        .routeParam("owner", commitRequestBody.getOwner())
+                        .routeParam("repo", commitRequestBody.getRepository())
+                        .asObject(new GenericType<List<ContributorStats>>() {
+                        });
 
-            if (httpStatusCode == 202) {
-                logger.warn("the http status code is: {}", httpStatusCode);
-                logger.warn("I will retry de http call to the github api");
-                getContributorStats(commitRequestBody);
+                httpStatusCode = responseEntity.getStatus();
+
+                logger.info("the http status code is: {}", httpStatusCode);
+
+                if (httpStatusCode == 202) {
+
+                    logger.warn("I will retry de http call to /stats/contributors endpoint");
+
+                }
+
             }
 
+            while (httpStatusCode == 202);
+
             logger.info("success on get github repository contributor stats");
-            logger.info("the http status code is: {}", httpStatusCode);
 
             return responseEntity.getBody();
 

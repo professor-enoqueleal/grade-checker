@@ -1,5 +1,6 @@
 package br.com.gradechecker.repository;
 
+import br.com.gradechecker.config.ConnectionPoolConfig;
 import br.com.gradechecker.model.Group;
 import br.com.gradechecker.model.Member;
 import org.apache.logging.log4j.LogManager;
@@ -20,7 +21,7 @@ public class MemberRepository {
 
         try {
 
-            Connection connection = DriverManager.getConnection("jdbc:h2:~/test", "sa", "sa");
+            Connection connection = ConnectionPoolConfig.getConnection();
 
             logger.info("success in database connection");
 
@@ -52,7 +53,7 @@ public class MemberRepository {
 
         try {
 
-            Connection connection = DriverManager.getConnection("jdbc:h2:~/test", "sa", "sa");
+            Connection connection = ConnectionPoolConfig.getConnection();
 
             logger.info("success in database connection");
 

@@ -30,6 +30,7 @@
         <jquery.version>3.7.1</jquery.version>
         <wiremock.version>2.35.1</wiremock.version>
         <system.rules.version>1.19.0</system.rules.version>
+        <dbcp2.version>2.9.0</dbcp2.version>
     </properties>
 
     <dependencies>
@@ -115,6 +116,12 @@
             <groupId>org.webjars</groupId>
             <artifactId>jquery</artifactId>
             <version>${jquery.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-dbcp2</artifactId>
+            <version>${dbcp2.version}</version>
         </dependency>
 
     </dependencies>

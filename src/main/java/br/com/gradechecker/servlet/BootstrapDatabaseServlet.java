@@ -1,5 +1,6 @@
 package br.com.gradechecker.servlet;
 
+import br.com.gradechecker.config.ConnectionPoolConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -28,7 +29,7 @@ public class BootstrapDatabaseServlet extends HttpServlet {
 
         try {
 
-            Connection connection = DriverManager.getConnection("jdbc:h2:~/test", "sa", "sa");
+            Connection connection = ConnectionPoolConfig.getConnection();
 
             logger.info("############ TRYING LOAD DATABASE TABLES ############");
 

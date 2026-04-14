@@ -38,3 +38,21 @@ seguinte comando à configuração da JVM:
 ```
 --add-opens java.base/java.util=ALL-UNNAMED
 ```
+
+---
+
+```
+
+docker build --no-cache -t grade-checker-v2 .
+
+docker build --progress=plain --no-cache -t grade-checker-v2 .
+
+docker rm -f grade-checker-container
+
+docker run --name grade-checker-container -p 8080:8080 grade-checker-v2
+
+```
+
+---
+# suggest name
+code-metrics

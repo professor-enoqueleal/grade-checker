@@ -1,0 +1,15 @@
+{
+  "brand": "Chevrolet",
+  "cars": [
+    {
+      "name": "Camaro",
+      "color": "Yellow",
+      "notas": [1.8, 2.0]
+    },
+    {
+      "nome": "Onix",
+      "color": "Red",
+      "notas": [1.0, 1.4]
+    }
+  ]
+}

@@ -32,3 +32,4 @@ INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VAL
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('livraria-lexxis', 'https://github.com/FelipeZx405/livraria-lexxis', 'FelipeZx405', 'livraria-lexxis');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('eventhub', 'https://github.com/gabrielrgtx/eventhub', 'gabrielrgtx', 'eventhub');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('grupologistica', 'https://github.com/pedfaroh-bit/grupologistica', 'pedfaroh-bit', 'grupologistica');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Nonna-Pizza', 'https://github.com/yGoomez/Nonna-Pizza', 'yGoomez', 'Nonna-Pizza');

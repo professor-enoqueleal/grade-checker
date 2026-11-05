@@ -10,15 +10,23 @@ public class AuthenticationProxy {
 
     private final Logger logger = LogManager.getLogger(this.getClass());
 
-    private static final String clientId = System.getenv("GITHUB_CLIENT_ID");
-
-    private static final String clientSecret = System.getenv("GITHUB_CLIENT_SECRET");
-
-    private static final String baseURL = System.getenv("GITHUB_BASE_URL");
+    // baseURL can still come from env var
+    private static final String baseURL = System.getProperty("GITHUB_BASE_URL") != null ? System.getProperty("GITHUB_BASE_URL") : System.getenv("GITHUB_BASE_URL");
 
     public AccessToken exchangeCodePerToken(String code) {
 
-        String url = baseURL.concat( "/login/oauth/access_token");
+        String clientId = System.getProperty("GITHUB_CLIENT_ID");
+        if (clientId == null) clientId = System.getenv("GITHUB_CLIENT_ID");
+
+        String clientSecret = System.getProperty("GITHUB_CLIENT_SECRET");
+        if (clientSecret == null) clientSecret = System.getenv("GITHUB_CLIENT_SECRET");
+
+        if (clientId == null || clientSecret == null) {
+            logger.error("GitHub client credentials not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables or system properties.");
+            throw new IllegalStateException("GitHub client credentials not configured");
+        }
+
+        String url = (baseURL != null ? baseURL : "https://github.com").concat("/login/oauth/access_token");
 
         try {
 

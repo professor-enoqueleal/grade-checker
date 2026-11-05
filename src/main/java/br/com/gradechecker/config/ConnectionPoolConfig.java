@@ -14,14 +14,31 @@ public class ConnectionPoolConfig {
         if (dataSource == null) {
 
             dataSource = new BasicDataSource();
-            dataSource.setUrl("jdbc:h2:~/h2db/grade-checker;DB_CLOSE_ON_EXIT=FALSE");
-            dataSource.setUsername("sa");
-            dataSource.setPassword("sa");
-            dataSource.setMinIdle(5);   // Número mínimo de conexões ociosas no pool
-            dataSource.setMaxIdle(10);  // Número máximo de conexões ociosas no pool
-            dataSource.setMaxTotal(50); // Número máximo de conexões totais no pool
 
-            System.out.println("New connection pool created with successful");
+            // Allow overriding via system properties (useful in tests) or environment variables
+            String dbUrl = System.getProperty("DB_URL");
+            if (dbUrl == null) dbUrl = System.getenv("DB_URL");
+            if (dbUrl == null) dbUrl = "jdbc:h2:~/h2db/grade-checker;DB_CLOSE_ON_EXIT=FALSE"; // default
+
+            String dbUser = System.getProperty("DB_USER");
+            if (dbUser == null) dbUser = System.getenv("DB_USER");
+            if (dbUser == null) dbUser = "sa";
+
+            String dbPass = System.getProperty("DB_PASS");
+            if (dbPass == null) dbPass = System.getenv("DB_PASS");
+            if (dbPass == null) dbPass = "sa";
+
+            dataSource.setUrl(dbUrl);
+            dataSource.setUsername(dbUser);
+            dataSource.setPassword(dbPass);
+            dataSource.setMinIdle(1);
+            dataSource.setMaxIdle(5);
+            dataSource.setMaxTotal(20);
+
+            // Optional: validation query for H2
+            dataSource.setValidationQuery("SELECT 1");
+
+            System.out.println("Connection pool initialized for URL: " + dbUrl);
 
         }
 

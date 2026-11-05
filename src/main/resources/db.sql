@@ -6,8 +6,31 @@ DROP TABLE IF EXISTS GROUPS;
 
 --CREATE TABLE USR_SESSION(ID INT PRIMARY KEY AUTO_INCREMENT, ACCESS_TOKEN VARCHAR(255));
 CREATE TABLE GROUPS(ID INT PRIMARY KEY AUTO_INCREMENT, NAME VARCHAR(255), REPOSITORY_URL VARCHAR(255), REPOSITORY_OWNER VARCHAR(255), REPOSITORY_NAME VARCHAR(255), REPOSITORY_PRIVATE BOOLEAN DEFAULT FALSE);
-CREATE TABLE MEMBERS(ID INT PRIMARY KEY AUTO_INCREMENT, NAME VARCHAR(255), GITHUB_USERNAME VARCHAR(255), GROUP_ID INT, FOREIGN KEY (GROUP_ID) REFERENCES GROUPS (ID));
-CREATE TABLE CONTRIBUTORS(ID INT, LOGIN VARCHAR(255), AVATAR_URL VARCHAR(255), HTML_URL VARCHAR(255), CONTRIBUTIONS INT, GROUP_ID INT, FOREIGN KEY (GROUP_ID) REFERENCES GROUPS (ID));
+
+-- create CONTRIBUTORS before MEMBERS so we can reference CONTRIBUTORS from MEMBERS
+CREATE TABLE CONTRIBUTORS(
+    ID INT PRIMARY KEY,
+    LOGIN VARCHAR(255),
+    AVATAR_URL VARCHAR(255),
+    HTML_URL VARCHAR(255),
+    CONTRIBUTIONS INT,
+    GROUP_ID INT,
+    FOREIGN KEY (GROUP_ID) REFERENCES GROUPS (ID),
+    UNIQUE (LOGIN, GROUP_ID)
+);
+
+CREATE TABLE MEMBERS(
+    ID INT PRIMARY KEY AUTO_INCREMENT,
+    NAME VARCHAR(255),
+    GITHUB_USERNAME VARCHAR(255),
+    GITHUB_ID INT,
+    GROUP_ID INT,
+    CREATED_MANUALLY BOOLEAN DEFAULT FALSE,
+    CONTRIBUTIONS INT DEFAULT 0,
+    FOREIGN KEY (GROUP_ID) REFERENCES GROUPS (ID),
+    FOREIGN KEY (GITHUB_ID) REFERENCES CONTRIBUTORS (ID),
+    UNIQUE (GITHUB_USERNAME, GROUP_ID)
+);
 
 --# | name | url | owner | repo
 --INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('life-bf', 'https://github.com/fehhmont/LifeBF', 'fehhmont', 'LifeBF');
@@ -23,13 +46,15 @@ CREATE TABLE CONTRIBUTORS(ID INT, LOGIN VARCHAR(255), AVATAR_URL VARCHAR(255), H
 --INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('little-market', 'https://github.com/PIbnz/little-market', 'PIbnz', 'little-market');
 
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('projeto-chamados', 'https://github.com/Saacbs/Projeto-Chamados', 'Saacbs', 'projeto-chamados');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('clinica', 'https://github.com/Hugodev0711/clinica-pi', 'Hugodev0711', 'clinica-pi');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('sensei-dev', 'https://github.com/VitorConrado04/sensei-dev', 'VitorConrado04', 'sensei-dev');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('clinica', 'https://github.com/Hugodev0711/clinica-pi', 'Hugodev0711', 'clinica-pi');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('nonna-pizza', 'https://github.com/rulckus/nonna-pizza', 'rulckus', 'nonna-pizza');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('conversor-estoque-xml', 'https://github.com/GuilhermeMeloGS/conversor-estoque-xml', 'GuilhermeMeloGS', 'conversor-estoque-xml');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('cannamed', 'https://github.com/LucasMoura-dev777/cannamed', 'LucasMoura-dev777', 'cannamed');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('sistema-gestao-funcionarios', 'https://github.com/Renan7Erick/sistema-gestao-funcionarios', 'Renan7Erick', 'sistema-gestao-funcionarios');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('locacaoquadras', 'https://github.com/pedfaroh-bit/locacaoquadras', 'pedfaroh-bit', 'locacaoquadras');
+INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('plataforma-amis', 'https://github.com/amanda-pedreira/Plataforma-Amis', 'amanda-pedreira', 'plataforma-amis');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('reelbook', 'https://github.com/itscuds/reelbook', 'itscuds', 'reelbook');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('biblioteca-virtual', 'https://github.com/Melibanio/biblioteca-virtual', 'Melibanio', 'biblioteca-virtual');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('livraria-lexxis', 'https://github.com/FelipeZx405/livraria-lexxis', 'FelipeZx405', 'livraria-lexxis');
 INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('eventhub', 'https://github.com/gabrielrgtx/eventhub', 'gabrielrgtx', 'eventhub');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('grupologistica', 'https://github.com/pedfaroh-bit/grupologistica', 'pedfaroh-bit', 'grupologistica');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('Nonna-Pizza', 'https://github.com/yGoomez/Nonna-Pizza', 'yGoomez', 'Nonna-Pizza');

@@ -1,12 +1,13 @@
 package br.com.gradechecker.repository;
 
+import br.com.gradechecker.cache.CacheManager;
 import br.com.gradechecker.config.ConnectionPoolConfig;
 import br.com.gradechecker.model.Contributor;
+import br.com.gradechecker.repository.queries.Queries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -19,47 +20,53 @@ public class ContributorsRepository {
 
     public List<Contributor> getByGroupId(Long groupId) {
 
-        final String sqlCommand = "SELECT * FROM CONTRIBUTORS WHERE GROUP_ID = ?";
+        final String cacheKey = CacheManager.key("contributors.findByGroupId::", groupId);
+        @SuppressWarnings("unchecked")
+        List<Contributor> cached = CacheManager.get(cacheKey, List.class);
+        if (cached != null) {
+            return cached;
+        }
 
-        try {
+        final String sqlCommand = Queries.get("contributors.findByGroupId");
 
-            Connection connection = ConnectionPoolConfig.getConnection();
+        try (Connection connection = ConnectionPoolConfig.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sqlCommand)) {
 
             logger.info("success in database connection");
 
-            PreparedStatement preparedStatement = connection.prepareStatement(sqlCommand);
-
             preparedStatement.setLong(1, groupId);
 
-            ResultSet resultSet = preparedStatement.executeQuery();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
 
-            logger.info("success in select contributors");
+                logger.info("success in select contributors");
 
-            if (!resultSet.isBeforeFirst()) {
+                if (!resultSet.isBeforeFirst()) {
 
-                return Collections.emptyList();
+                    return Collections.emptyList();
+
+                }
+
+                List<Contributor> contributors = new ArrayList<>();
+
+                while (resultSet.next()) {
+
+                    int id = resultSet.getInt("ID");
+                    String login = resultSet.getString("LOGIN");
+                    String avatarUrl = resultSet.getString("AVATAR_URL");
+                    String htmlUrl = resultSet.getString("HTML_URL");
+                    int contributions = resultSet.getInt("CONTRIBUTIONS");
+
+                    Contributor contributor = new Contributor(login, id, avatarUrl, htmlUrl, contributions);
+
+                    contributors.add(contributor);
+
+                }
+
+                CacheManager.put(cacheKey, contributors);
+
+                return contributors;
 
             }
-
-            List<Contributor> contributors = new ArrayList<>();
-
-            while (resultSet.next()) {
-
-                int id = resultSet.getInt("ID");
-                String login = resultSet.getString("LOGIN");
-                String avatarUrl = resultSet.getString("AVATAR_URL");
-                String htmlUrl = resultSet.getString("HTML_URL");
-                int contributions = resultSet.getInt("CONTRIBUTIONS");
-
-                Contributor contributor = new Contributor(login, id, avatarUrl, htmlUrl, contributions);
-
-                contributors.add(contributor);
-
-            }
-
-            connection.close();
-
-            return contributors;
 
         } catch (Exception e) {
 
@@ -73,34 +80,33 @@ public class ContributorsRepository {
 
     public void create(List<Contributor> contributors, Long groupId) {
 
-        String sqlCommand = "INSERT INTO CONTRIBUTORS (ID, LOGIN, AVATAR_URL, HTML_URL, CONTRIBUTIONS, GROUP_ID) VALUES (?, ?, ?, ?, ?, ?);";
+        String sqlCommand = Queries.get("contributors.insert");
 
-        try {
+        if (contributors == null || contributors.isEmpty()) {
+            return;
+        }
 
-            Connection connection = ConnectionPoolConfig.getConnection();
+        try (Connection connection = ConnectionPoolConfig.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sqlCommand)) {
 
             logger.info("success in database connection");
 
-            PreparedStatement preparedStatement = connection.prepareStatement(sqlCommand);
-
-            if(null != contributors) {
-
-                for (Contributor contributor : contributors) {
-                    preparedStatement.setInt(1, contributor.getId());
-                    preparedStatement.setString(2, contributor.getLogin());
-                    preparedStatement.setString(3, contributor.getAvatarUrl());
-                    preparedStatement.setString(4, contributor.getHtmlUrl());
-                    preparedStatement.setInt(5, contributor.getContributions());
-                    preparedStatement.setLong(6, groupId);
-                    preparedStatement.addBatch();
-                }
-
-                preparedStatement.executeBatch();
-                connection.commit();
-
-                logger.info("success in insert member on database");
-
+            for (Contributor contributor : contributors) {
+                preparedStatement.setInt(1, contributor.getId());
+                preparedStatement.setString(2, contributor.getLogin());
+                preparedStatement.setString(3, contributor.getAvatarUrl());
+                preparedStatement.setString(4, contributor.getHtmlUrl());
+                preparedStatement.setInt(5, contributor.getContributions());
+                preparedStatement.setLong(6, groupId);
+                preparedStatement.addBatch();
             }
+
+            preparedStatement.executeBatch();
+
+            logger.info("success in insert contributors on database");
+
+            // invalidate cache for this group
+            CacheManager.invalidate(CacheManager.key("contributors.findByGroupId::", groupId));
 
         } catch (Exception e) {
 
@@ -111,5 +117,44 @@ public class ContributorsRepository {
         }
 
     }
-    
+
+    public void createIfNotExists(Contributor contributor, Long groupId) {
+
+        if (contributor == null) return;
+
+        final String checkSql = Queries.get("contributors.existsById");
+        final String insertSql = Queries.get("contributors.insert");
+
+        try (Connection connection = ConnectionPoolConfig.getConnection()) {
+
+            try (PreparedStatement ps = connection.prepareStatement(checkSql)) {
+                ps.setInt(1, contributor.getId());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        // already exists
+                        return;
+                    }
+                }
+            }
+
+            // insert
+            try (PreparedStatement ps2 = connection.prepareStatement(insertSql)) {
+                ps2.setInt(1, contributor.getId());
+                ps2.setString(2, contributor.getLogin());
+                ps2.setString(3, contributor.getAvatarUrl());
+                ps2.setString(4, contributor.getHtmlUrl());
+                ps2.setInt(5, contributor.getContributions());
+                ps2.setLong(6, groupId);
+                ps2.execute();
+            }
+
+            CacheManager.invalidate(CacheManager.key("contributors.findByGroupId::", groupId));
+
+        } catch (Exception e) {
+            // ignore duplicate-key or other race conditions; log at debug
+            logger.warn("Could not create contributor {}: {}", contributor.getLogin(), e.getMessage());
+        }
+
+    }
+
 }

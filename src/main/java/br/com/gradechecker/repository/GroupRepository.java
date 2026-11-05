@@ -1,5 +1,6 @@
 package br.com.gradechecker.repository;
 
+import br.com.gradechecker.cache.CacheManager;
 import br.com.gradechecker.config.ConnectionPoolConfig;
 import br.com.gradechecker.model.Group;
 import org.apache.logging.log4j.LogManager;
@@ -16,15 +17,18 @@ public class GroupRepository {
 
     public List<Group> findAll() {
 
-        final String SQLCommand = "SELECT * FROM GROUPS";
+        final String cacheKey = CacheManager.key("group.findAll::");
+        @SuppressWarnings("unchecked")
+        List<Group> cached = CacheManager.get(cacheKey, List.class);
+        if (cached != null) {
+            return cached;
+        }
 
-        try {
-
-            Connection connection = ConnectionPoolConfig.getConnection();
+        try (Connection connection = ConnectionPoolConfig.getConnection();
+             PreparedStatement ps = connection.prepareStatement(SqlQueries.GROUPS_SELECT_ALL);
+             ResultSet resultSet = ps.executeQuery()) {
 
             logger.info("success in database connection");
-
-            ResultSet resultSet = connection.prepareStatement(SQLCommand).executeQuery();
 
             logger.info("success in select groups");
 
@@ -44,7 +48,7 @@ public class GroupRepository {
 
             }
 
-            connection.close();
+            CacheManager.put(cacheKey, groups);
 
             return groups;
 
@@ -60,43 +64,46 @@ public class GroupRepository {
 
     public Group getGroupDetail(long groupId) {
 
-        String SQLCommand = "SELECT * FROM GROUPS WHERE ID = ?";
+        final String cacheKey = CacheManager.key("group.findById::", groupId);
+        Group cached = CacheManager.get(cacheKey, Group.class);
+        if (cached != null) {
+            return cached;
+        }
 
-        try {
-
-            Connection connection = ConnectionPoolConfig.getConnection();
+        try (Connection connection = ConnectionPoolConfig.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SqlQueries.GROUPS_SELECT_BY_ID)) {
 
             logger.info("success in database connection");
 
-            PreparedStatement preparedStatement = connection.prepareStatement(SQLCommand);
-
             preparedStatement.setLong(1, groupId);
 
-            ResultSet resultSet = preparedStatement.executeQuery();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
 
-            logger.info("success in select group");
+                logger.info("success in select group");
 
-            Group group = new Group();
+                Group group = new Group();
 
-            while (resultSet.next()) {
+                while (resultSet.next()) {
 
-                long id = resultSet.getLong("id");
-                String groupName = resultSet.getString("name");
-                String repositoryUrl = resultSet.getString("repository_url");
-                String repositoryOwner = resultSet.getString("repository_owner");
-                String repositoryName = resultSet.getString("repository_name");
+                    long id = resultSet.getLong("id");
+                    String groupName = resultSet.getString("name");
+                    String repositoryUrl = resultSet.getString("repository_url");
+                    String repositoryOwner = resultSet.getString("repository_owner");
+                    String repositoryName = resultSet.getString("repository_name");
 
-                group.setId(id);
-                group.setName(groupName);
-                group.setRepositoryUrl(repositoryUrl);
-                group.setOwner(repositoryOwner);
-                group.setRepository(repositoryName);
+                    group.setId(id);
+                    group.setName(groupName);
+                    group.setRepositoryUrl(repositoryUrl);
+                    group.setOwner(repositoryOwner);
+                    group.setRepository(repositoryName);
+
+                }
+
+                CacheManager.put(cacheKey, group);
+
+                return group;
 
             }
-
-            connection.close();
-
-            return group;
 
         } catch (Exception e) {
 
@@ -110,15 +117,10 @@ public class GroupRepository {
 
     public void create(Group group){
 
-        String SQLCommand = "INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES (?, ?, ?, ?);";
-
-        try {
-
-            Connection connection = ConnectionPoolConfig.getConnection();
+        try (Connection connection = ConnectionPoolConfig.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SqlQueries.GROUPS_INSERT)) {
 
             logger.info("success in database connection");
-
-            PreparedStatement preparedStatement = connection.prepareStatement(SQLCommand);
 
             preparedStatement.setString(1, group.getName());
             preparedStatement.setString(2, group.getRepositoryUrl());
@@ -128,6 +130,9 @@ public class GroupRepository {
             preparedStatement.execute();
 
             logger.info("success in insert group on database");
+
+            // invalidate related caches
+            CacheManager.invalidate(CacheManager.key("group.findAll::"));
 
         } catch (Exception e) {
 

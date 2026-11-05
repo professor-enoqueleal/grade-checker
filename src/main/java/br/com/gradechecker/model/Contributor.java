@@ -4,6 +4,9 @@ import com.google.gson.annotations.SerializedName;
 
 public class Contributor {
 
+    @SerializedName("author")
+    public Contributor author;
+
     @SerializedName("login")
     private String login;
 
@@ -23,12 +26,24 @@ public class Contributor {
 
     }
 
+    public Contributor(Contributor author) {
+        this.author = author;
+    }
+
     public Contributor(String login, int id, String avatarUrl, String htmlUrl, int contributions) {
         this.login = login;
         this.id = id;
         this.avatarUrl = avatarUrl;
         this.htmlUrl = htmlUrl;
         this.contributions = contributions;
+    }
+
+    public Contributor getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(Contributor author) {
+        this.author = author;
     }
 
     public String getLogin() {
@@ -54,7 +69,6 @@ public class Contributor {
     public void setAvatarUrl(String avatarUrl) {
         this.avatarUrl = avatarUrl;
     }
-
 
     public String getHtmlUrl() {
         return htmlUrl;

@@ -100,6 +100,19 @@
 
     <div>
 
+    <hr>
+
+    <c:if test="${param.error == 'github_user_not_found'}">
+        <div class="alert alert-danger" role="alert">
+            O usuário informado não existe no GitHub; cadastro não realizado.
+        </div>
+    </c:if>
+    <c:if test="${param.error == 'member_already_exists'}">
+        <div class="alert alert-warning" role="alert">
+            O membro já está cadastrado para este grupo; nenhum novo cadastro foi efetuado.
+        </div>
+    </c:if>
+
     <h4>Contributors</h4>
 
     <div class="row row-cols-1 row-cols-md-3 mb-3">

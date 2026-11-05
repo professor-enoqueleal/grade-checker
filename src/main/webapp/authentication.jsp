@@ -5,21 +5,97 @@
     <script src="/js/color-modes.js"></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="">
+    <meta name="description" content="Sign in to Grade Checker">
     <meta name="author" content="Enoque Leal">
-    <meta name="generator" content="Hugo 0.112.5">
-    <title>Grade Checker</title>
+    <title>Sign in · Grade Checker</title>
 
     <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <!-- Favicons -->
 
     <meta name="theme-color" content="#712cf9">
 
-    <!-- Custom styles for this template -->
-    <link href="/css/offcanvas-navbar.css" rel="stylesheet">
+    <style>
+        :root {
+            --gh-btn-bg: #24292f;
+            --gh-btn-hover-bg: #32383f;
+            --gh-btn-color: #ffffff;
+            --gh-btn-border: #24292f;
+        }
 
+        [data-bs-theme="dark"] {
+            --gh-btn-bg: #f6f8fa;
+            --gh-btn-hover-bg: #ffffff;
+            --gh-btn-color: #1f2328;
+            --gh-btn-border: #f6f8fa;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        .auth-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .auth-logo {
+            width: 56px;
+            height: 56px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            background-color: #712cf9;
+            color: #fff;
+            font-size: 1.75rem;
+        }
+
+        .btn-github {
+            --bs-btn-color: var(--gh-btn-color);
+            --bs-btn-bg: var(--gh-btn-bg);
+            --bs-btn-border-color: var(--gh-btn-border);
+            --bs-btn-hover-color: var(--gh-btn-color);
+            --bs-btn-hover-bg: var(--gh-btn-hover-bg);
+            --bs-btn-hover-border-color: var(--gh-btn-hover-bg);
+            --bs-btn-active-color: var(--gh-btn-color);
+            --bs-btn-active-bg: var(--gh-btn-hover-bg);
+            --bs-btn-active-border-color: var(--gh-btn-hover-bg);
+            --bs-btn-focus-shadow-rgb: 112, 44, 249;
+            font-weight: 600;
+        }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            color: var(--bs-secondary-color);
+            font-size: .875rem;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: "";
+            flex: 1;
+            border-top: 1px solid var(--bs-border-color);
+        }
+
+        .btn-token-toggle .bi-chevron-down {
+            transition: transform .2s ease-in-out;
+        }
+
+        .btn-token-toggle[aria-expanded="true"] .bi-chevron-down {
+            transform: rotate(180deg);
+        }
+    </style>
 </head>
 <body class="bg-body-tertiary">
 <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
@@ -35,6 +111,9 @@
     </symbol>
     <symbol id="sun-fill" viewBox="0 0 16 16">
         <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
+    </symbol>
+    <symbol id="github" viewBox="0 0 16 16">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
     </symbol>
 </svg>
 
@@ -90,48 +169,72 @@
     </ul>
 </div>
 
-<main class="container">
+<main class="auth-wrapper">
+    <div class="auth-card">
 
-    <c:if test="${hasMessage == true}">
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-          <strong>Attention!</strong> <span>${message}</span>
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div class="text-center mb-4">
+            <span class="auth-logo mb-3" aria-hidden="true"><i class="bi bi-mortarboard-fill"></i></span>
+            <h1 class="h4 fw-semibold mb-1">Sign in to Grade Checker</h1>
+            <p class="text-body-secondary small mb-0">Use your GitHub account to continue</p>
         </div>
-    </c:if>
 
-    <div class="my-3 p-3 bg-body rounded shadow-sm">
+        <c:if test="${hasMessage == true or not empty message}">
+            <div class="alert alert-danger alert-dismissible fade show small" role="alert">
+                <i class="bi bi-exclamation-circle me-1"></i>
+                <c:out value="${message}"/>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </c:if>
 
-        <h6 class="border-bottom pb-2 mb-0">Log in</h6>
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-body p-4">
 
-        <div class="d-flex text-body-secondary pt-3">
+                <a class="btn btn-github btn-lg w-100 d-flex align-items-center justify-content-center gap-2 fs-6 py-2"
+                   href="https://github.com/login/oauth/authorize?client_id=Iv1.51b5bb131e5cd47a">
+                    <svg class="bi" width="20" height="20" aria-hidden="true"><use href="#github"></use></svg>
+                    Continue with GitHub
+                </a>
 
-            <div class="mb-6">
+                <div class="auth-divider my-4">or</div>
 
-                <form action="/login" method="post">
-                    <label for="access-token" class="form-label">Personal access tokens</label>
-                    <input type="password" name="access-token" class="form-control" id="access-token" placeholder="XYZ-1234">
-                    <br>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </form>
+                <button class="btn btn-link btn-token-toggle w-100 text-body-secondary text-decoration-none small d-flex align-items-center justify-content-center gap-1 p-0"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#token-form"
+                        aria-expanded="false"
+                        aria-controls="token-form">
+                    <i class="bi bi-key"></i>
+                    Sign in with a personal access token
+                    <i class="bi bi-chevron-down small"></i>
+                </button>
+
+                <div class="collapse" id="token-form">
+                    <form action="/login" method="post" class="pt-3">
+                        <label for="access-token" class="form-label small fw-semibold">Personal access token</label>
+                        <input type="password" name="access-token" class="form-control" id="access-token"
+                               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" required>
+                        <div class="form-text">
+                            Generate one in
+                            <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">GitHub settings</a>.
+                        </div>
+                        <button type="submit" class="btn btn-outline-secondary w-100 mt-3">Sign in with token</button>
+                    </form>
+                </div>
 
             </div>
-
         </div>
 
-        <hr>
-
-        <span>Or connect with GitHub</span>
-
-        <a href="https://github.com/login/oauth/authorize?client_id=Iv1.51b5bb131e5cd47a">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-github" viewBox="0 0 16 16">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
-            </svg>
-        </a>
+        <p class="text-center text-body-secondary small mt-4 mb-0">
+            Grade Checker uses GitHub to read repositories, commits and contributors.
+        </p>
 
     </div>
-
 </main>
+
 <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.js"></script>
-<script src="/js/navbar.js"></script>
+<script>
+    document.getElementById('token-form')
+        .addEventListener('shown.bs.collapse', () => document.getElementById('access-token').focus());
+</script>
 </body>
 </html>

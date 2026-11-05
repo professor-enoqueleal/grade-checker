@@ -31,6 +31,7 @@
         <wiremock.version>2.35.1</wiremock.version>
         <system.rules.version>1.19.0</system.rules.version>
         <dbcp2.version>2.9.0</dbcp2.version>
+        <caffeine.version>3.1.6</caffeine.version>
     </properties>
 
     <dependencies>
@@ -122,6 +123,12 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-dbcp2</artifactId>
             <version>${dbcp2.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
         </dependency>
 
     </dependencies>

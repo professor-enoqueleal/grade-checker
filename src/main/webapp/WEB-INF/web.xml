@@ -29,7 +29,22 @@
         <servlet-name>H2Console</servlet-name>
         <url-pattern>/console/*</url-pattern>
     </servlet-mapping>
-    
+
+    <servlet>
+        <servlet-name>AdminCacheServlet</servlet-name>
+        <servlet-class>br.com.gradechecker.servlet.AdminCacheServlet</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>AdminCacheServlet</servlet-name>
+        <url-pattern>/admin/cache</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>AdminCacheServlet</servlet-name>
+        <url-pattern>/admin/cache/stats</url-pattern>
+    </servlet-mapping>
+
     <welcome-file-list>
         <welcome-file>/authentication.jsp</welcome-file>
     </welcome-file-list>

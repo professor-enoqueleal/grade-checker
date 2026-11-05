@@ -1,0 +1,18 @@
+package br.com.gradechecker.repository;
+
+import br.com.gradechecker.repository.queries.Queries;
+
+public final class SqlQueries {
+
+    private SqlQueries() {}
+
+    // GROUPS
+    public static final String GROUPS_SELECT_ALL = Queries.get("group.findAll");
+    public static final String GROUPS_SELECT_BY_ID = Queries.get("group.findById");
+    public static final String GROUPS_INSERT = Queries.get("group.insert");
+
+    // MEMBERS
+    public static final String MEMBERS_INSERT = Queries.get("member.insert");
+    public static final String MEMBERS_COUNT_BY_GROUP_ID = Queries.get("member.countByGroupId");
+
+}

@@ -5,6 +5,14 @@
     <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <meta charset="UTF-8">
     <title>Grade Checker</title>
+    <style>
+        /* same illustration as before, smaller and never cropped (openspec/changes/cards-responsivos) */
+        .group-card-img {
+            height: 160px;
+            object-fit: contain;
+            padding: 1rem 1rem 0;
+        }
+    </style>
 </head>
 <body>
 
@@ -31,28 +39,29 @@
         </div>
     </c:if>
 
-    <div class="row row-cols-1 row-cols-md-3 mb-3">
-    
+    <!-- 1 column < 576px, 2 columns 576-991px, 3 columns >= 992px; cards fill their column -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 mb-4">
+
       <c:forEach var="group" items="${groups}">
-    
+
         <div class="col">
-          <div class="card" style="width: 20rem;">
-            <img class="card-img-top" src="/img/group.png" alt="Card image cap">
+          <div class="card h-100 shadow-sm">
+            <img class="card-img-top group-card-img" src="/img/group.png" alt="Group <c:out value='${group.id}'/>">
             <div class="card-body text-center">
-              <h5 class="card-title">Group ${group.id}</h5>
+              <h5 class="card-title">Group <c:out value="${group.id}"/></h5>
             </div>
             <ul class="list-group list-group-flush">
-              <li class="list-group-item"><b>Name:</b> ${group.name}</li>
+              <li class="list-group-item"><b>Name:</b> <c:out value="${group.name}"/></li>
             </ul>
-            <div class="card-body text-center">
-              <a href="/detail?id=${group.id}" class="card-link">Details</a>
+            <div class="card-footer bg-transparent border-0 text-center py-3">
+              <c:url var="detailUrl" value="/detail"><c:param name="id" value="${group.id}"/></c:url>
+              <a href="<c:out value='${detailUrl}'/>" class="card-link">Details</a>
             </div>
           </div>
-          <br>
         </div>
-    
+
       </c:forEach>
-    
+
     </div>
   </main>
 <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.js"></script>

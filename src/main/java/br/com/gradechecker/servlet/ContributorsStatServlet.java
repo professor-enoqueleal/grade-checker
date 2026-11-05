@@ -5,7 +5,10 @@ import br.com.gradechecker.model.ContributionsReport;
 import br.com.gradechecker.model.ContributorStatsCommand;
 import br.com.gradechecker.proxy.GitHubApiException;
 import br.com.gradechecker.service.ContributorsService;
+import br.com.gradechecker.service.PeriodResolver;
+import br.com.gradechecker.service.PeriodResolver.ResolvedPeriod;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -15,28 +18,26 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @WebServlet("/contributors-stats")
 public class ContributorsStatServlet extends HttpServlet {
 
-    static final String DEFAULT_SINCE = "2024-01-01T00:01:00Z";
-
     private final Logger logger = LogManager.getLogger(this.getClass());
 
     private final ContributorsService contributorsService;
+    private final PeriodResolver periodResolver;
     private final Gson gson;
 
     public ContributorsStatServlet() {
-        this(new ContributorsService());
+        this(new ContributorsService(), new PeriodResolver());
     }
 
-    public ContributorsStatServlet(ContributorsService contributorsService) {
+    public ContributorsStatServlet(ContributorsService contributorsService, PeriodResolver periodResolver) {
         this.contributorsService = contributorsService;
-        this.gson = new Gson();
+        this.periodResolver = periodResolver;
+        this.gson = new GsonBuilder().serializeNulls().create(); // "since": null for All
     }
 
     @Override
@@ -53,7 +54,18 @@ public class ContributorsStatServlet extends HttpServlet {
             return;
         }
 
-        CommitRequestBody commitRequestBody = getParameters(request, owner, repo);
+        ResolvedPeriod period = periodResolver.resolve(
+                request.getParameter("period"), request.getParameter("date-since"), request.getParameter("date-until"));
+
+        if (period.getError() != null) {
+            writeError(response, HttpServletResponse.SC_BAD_REQUEST, "invalid_period", period.getError());
+            return;
+        }
+
+        String accessToken = (String) request.getSession().getAttribute("accessToken");
+
+        CommitRequestBody commitRequestBody = new CommitRequestBody(
+                repo, owner, null, period.getSinceIso(), period.getUntilIso(), accessToken, request.getParameter("groupId"));
 
         try {
 
@@ -61,6 +73,8 @@ public class ContributorsStatServlet extends HttpServlet {
 
             Map<String, Object> content = new LinkedHashMap<>();
             content.put("message", "Contributions Dashboard");
+            content.put("period", period.getKey());
+            content.put("periodText", periodResolver.describe(period));
             content.put("since", report.getSince());
             content.put("until", report.getUntil());
             content.put("totalCommits", report.getTotalCommits());
@@ -86,28 +100,6 @@ public class ContributorsStatServlet extends HttpServlet {
 
         response.setStatus(status);
         response.getWriter().write(gson.toJson(body));
-
-    }
-
-    private CommitRequestBody getParameters(HttpServletRequest httpServletRequest, String owner, String repo) {
-
-        String accessToken = (String) httpServletRequest.getSession().getAttribute("accessToken");
-
-        String author = httpServletRequest.getParameter("author");
-        String groupId = httpServletRequest.getParameter("groupId");
-        String since = isBlank(httpServletRequest.getParameter("date-since")) ? DEFAULT_SINCE : httpServletRequest.getParameter("date-since");
-        String until = isBlank(httpServletRequest.getParameter("date-until")) ? defaultUntil(Instant.now()) : httpServletRequest.getParameter("date-until");
-
-        return new CommitRequestBody(repo, owner, author, since, until, accessToken, groupId);
-
-    }
-
-    /** Now rounded up to the next minute: stable cache key within the minute, no recent commit left out. */
-    static String defaultUntil(Instant now) {
-
-        Instant truncated = now.truncatedTo(ChronoUnit.MINUTES);
-
-        return (truncated.equals(now) ? truncated : truncated.plus(1, ChronoUnit.MINUTES)).toString();
 
     }
 

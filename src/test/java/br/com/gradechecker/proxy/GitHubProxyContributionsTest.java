@@ -89,6 +89,18 @@ public class GitHubProxyContributionsTest {
     }
 
     @Test
+    public void allPeriodOmitsSinceAndQueryAcceptsOptionalDates() {
+        stubGraphQl(page(false, null));
+
+        proxy.getContributionsReport(new CommitRequestBody("hello-world", "octocat", null, null, "2026-11-05T15:01:00Z", "token", "1"));
+
+        verify(postRequestedFor(urlEqualTo("/graphql"))
+                .withRequestBody(matchingJsonPath("$.query", containing("$since: GitTimestamp,")))
+                .withRequestBody(matchingJsonPath("$.variables.until", equalTo("2026-11-05T15:01:00Z")))
+                .withRequestBody(notMatching(".*\"since\"\\s*:.*")));
+    }
+
+    @Test
     public void aggregatesPerAuthorIgnoringMergesWithPercentageAndOrdering() {
         stubGraphQl(page(false, null,
                 commit("alice", "Alice", 10, 2, 1),

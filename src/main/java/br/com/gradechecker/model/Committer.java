@@ -33,6 +33,11 @@ public class Committer {
         this.email = email;
     }
 
+    /** Date as sent by GitHub (ISO-8601, UTC), for formatting in the configured zone. */
+    public String getIsoDate() {
+        return date;
+    }
+
     public String getDate() {
 
         Instant instant = Instant.parse(this.date);

@@ -1,10 +1,12 @@
 package br.com.gradechecker.servlet;
 
+import br.com.gradechecker.config.Milestones;
 import br.com.gradechecker.model.CommitRequestBody;
 import br.com.gradechecker.model.ContributionsReport;
 import br.com.gradechecker.model.ContributorStatsResponseBody;
 import br.com.gradechecker.proxy.GitHubApiException;
 import br.com.gradechecker.service.ContributorsService;
+import br.com.gradechecker.service.PeriodResolver;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,8 +18,11 @@ import org.mockito.ArgumentCaptor;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Properties;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -33,7 +38,16 @@ public class ContributorsStatServletTest {
     @Before
     public void setUp() throws Exception {
         service = mock(ContributorsService.class);
-        servlet = new ContributorsStatServlet(service);
+        Properties semester = new Properties();
+        semester.setProperty("milestone.1.start", "2026-08-13");
+        semester.setProperty("milestone.1.end", "2026-09-17");
+        semester.setProperty("milestone.2.start", "2026-09-18");
+        semester.setProperty("milestone.2.end", "2026-10-29");
+        semester.setProperty("milestone.3.start", "2026-10-30");
+        semester.setProperty("milestone.3.end", "2026-11-19");
+        PeriodResolver resolver = new PeriodResolver(Milestones.of(semester),
+                Clock.fixed(Instant.parse("2026-09-01T12:00:10Z"), ZoneOffset.UTC)); // M1 in progress, M2/M3 in the future
+        servlet = new ContributorsStatServlet(service, resolver);
         request = mock(HttpServletRequest.class);
         response = mock(HttpServletResponse.class);
         HttpSession session = mock(HttpSession.class);
@@ -85,25 +99,56 @@ public class ContributorsStatServletTest {
     }
 
     @Test
-    public void usesDefaultPeriodAndSessionToken() throws Exception {
+    public void defaultPeriodIsAllWithoutSince() throws Exception {
         when(request.getParameter("owner")).thenReturn("octocat");
         when(request.getParameter("repo")).thenReturn("hello-world");
+        when(service.getContributionsReport(any())).thenAnswer(inv -> {
+            CommitRequestBody b = inv.getArgument(0);
+            return new ContributionsReport(b.getSince(), b.getUntil(), 0, false, List.of());
+        });
+
+        servlet.doGet(request, response);
+
+        ArgumentCaptor<CommitRequestBody> captor = ArgumentCaptor.forClass(CommitRequestBody.class);
+        verify(service).getContributionsReport(captor.capture());
+        assertNull(captor.getValue().getSince());
+        assertEquals("2026-09-01T12:01:00Z", captor.getValue().getUntil());
+        assertEquals("token", captor.getValue().getAccessToken());
+
+        JsonObject json = json();
+        assertEquals("all", json.get("period").getAsString());
+        assertTrue(json.get("since").isJsonNull());
+        assertEquals("All history", json.get("periodText").getAsString());
+    }
+
+    @Test
+    public void milestonePeriodIsResolvedOnTheServer() throws Exception {
+        when(request.getParameter("owner")).thenReturn("octocat");
+        when(request.getParameter("repo")).thenReturn("hello-world");
+        when(request.getParameter("period")).thenReturn("m1");
         when(service.getContributionsReport(any())).thenReturn(new ContributionsReport("s", "u", 0, false, List.of()));
 
         servlet.doGet(request, response);
 
         ArgumentCaptor<CommitRequestBody> captor = ArgumentCaptor.forClass(CommitRequestBody.class);
         verify(service).getContributionsReport(captor.capture());
-        assertEquals(ContributorsStatServlet.DEFAULT_SINCE, captor.getValue().getSince());
-        assertTrue(captor.getValue().getUntil().endsWith(":00Z"));
-        assertEquals("token", captor.getValue().getAccessToken());
-        assertEquals("octocat", captor.getValue().getOwner());
+        assertEquals("2026-08-13T03:00:00Z", captor.getValue().getSince());
+        assertEquals("2026-09-18T02:59:59Z", captor.getValue().getUntil());
+        assertEquals("m1", json().get("period").getAsString());
     }
 
     @Test
-    public void defaultUntilIsRoundedUpToTheMinute() {
-        assertEquals("2026-11-05T14:33:00Z", ContributorsStatServlet.defaultUntil(Instant.parse("2026-11-05T14:32:10Z")));
-        assertEquals("2026-11-05T14:32:00Z", ContributorsStatServlet.defaultUntil(Instant.parse("2026-11-05T14:32:00Z")));
+    public void futureMilestoneIsBadRequestWithoutCallingGitHub() throws Exception {
+        when(request.getParameter("owner")).thenReturn("octocat");
+        when(request.getParameter("repo")).thenReturn("hello-world");
+        when(request.getParameter("period")).thenReturn("m3");
+
+        servlet.doGet(request, response);
+
+        verify(response).setStatus(400);
+        assertEquals("invalid_period", json().get("error").getAsString());
+        assertEquals("Milestone 3 starts on Oct 30, 2026.", json().get("message").getAsString());
+        verifyNoInteractions(service);
     }
 
     @Test

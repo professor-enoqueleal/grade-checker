@@ -7,6 +7,7 @@
     <script src="/webjars/bootstrap/5.3.0/js/bootstrap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/date-formatting.js"></script>
     <meta charset="UTF-8">
     <title>Grade Checker | Group Detail</title>
     <style>
@@ -26,8 +27,14 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* contributor avatar: always square, fills the card (openspec/changes/cards-responsivos) */
+        .avatar-card-img {
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+        }
+
         .contributions-table {
-            margin-top: 85px;
+            margin-top: 0.5rem;
         }
 
     </style>
@@ -39,7 +46,7 @@
     <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="/home">Home</a></li>
-        <li class="breadcrumb-item active" aria-current="page">Group ${group.id}</li>
+        <li class="breadcrumb-item active" aria-current="page">Group <c:out value="${group.id}"/></li>
       </ol>
     </nav>
     <hr>
@@ -48,48 +55,48 @@
 
     <div class="details row">
 
-        <div class="col">
+        <div class="col-12 col-lg-6">
 
             <div class="mb-2 row">
                 <label for="groupName" class="col-sm-3 col-form-label">Group Name:</label>
                 <div class="col-sm-9">
-                    <input type="text" readonly class="form-control-plaintext" id="groupName" value="${group.name}">
+                    <input type="text" readonly class="form-control-plaintext" id="groupName" value="<c:out value='${group.name}'/>">
                 </div>
             </div>
             <div class="mb-2 row">
-                <label for="url" class="col-sm-3 col-form-label">URL:</label>
+                <span class="col-sm-3 col-form-label">URL:</span>
                 <div class="col-sm-9">
-                    <a href="${group.repositoryUrl}" class="form-control-plaintext" target="_blank">${group.repositoryUrl}</a>
+                    <a href="<c:out value='${group.repositoryUrl}'/>" class="form-control-plaintext text-break" target="_blank" rel="noopener noreferrer"><c:out value="${group.repositoryUrl}"/></a>
                 </div>
             </div>
             <div class="mb-2 row">
                 <label for="owner" class="col-sm-3 col-form-label">Owner:</label>
                 <div class="col-sm-9">
-                    <input type="text" readonly class="form-control-plaintext" id="owner" value="${group.owner}">
+                    <input type="text" readonly class="form-control-plaintext" id="owner" value="<c:out value='${group.owner}'/>">
                 </div>
             </div>
             <div class="mb-2 row">
                 <label for="repository" class="col-sm-3 col-form-label">Repository name:</label>
                 <div class="col-sm-9">
-                    <input type="text" readonly class="form-control-plaintext" id="repository" value="${group.repository}">
+                    <input type="text" readonly class="form-control-plaintext" id="repository" value="<c:out value='${group.repository}'/>">
                 </div>
             </div>
 
         </div>
 
-        <div class="col">
+        <div class="col-12 col-lg-6">
 
             <div class="mb-2 row">
-                <label for="repository" class="col-sm-4 col-form-label">Number of contributors:</label>
+                <label for="number-of-contributors" class="col-sm-4 col-form-label">Number of contributors:</label>
                 <div class="col-sm-8">
-                    <input type="text" readonly class="form-control-plaintext" id="repository" value="${group.contributors.size()}">
+                    <input type="text" readonly class="form-control-plaintext" id="number-of-contributors" value="<c:out value='${group.contributors.size()}'/>">
                 </div>
             </div>
 
             <div class="mb-2 row">
                 <label for="members" class="col-sm-4 col-form-label">Number of members:</label>
                 <div class="col-sm-8">
-                    <input type="text" readonly class="form-control-plaintext" id="members" value="${group.totalOfMembers}">
+                    <input type="text" readonly class="form-control-plaintext" id="members" value="<c:out value='${group.totalOfMembers}'/>">
                 </div>
             </div>
 
@@ -116,31 +123,82 @@
 
     <h4>Contributors</h4>
 
-    <div class="row row-cols-1 row-cols-md-3 mb-3">
+    <!-- 1 column < 576px, 2 columns 576-991px, 3 columns >= 992px; cards fill their column -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 mb-4">
 
         <c:forEach var="contributor" items="${group.contributors}">
             <div class="col">
-                <div class="card mb-4 rounded-3 shadow-sm" style="width: 18rem;">
-                    <img src="${contributor.avatarUrl}" class="card-img-top" alt="...">
+                <div class="card h-100 rounded-3 shadow-sm">
+                    <img src="<c:out value='${contributor.avatarUrl}'/>" class="card-img-top avatar-card-img"
+                         alt="Avatar of <c:out value='${contributor.login}'/>">
                     <div class="card-body">
-                        <h5 class="card-title">${contributor.login}</h5>
-                        <p class="card-text">Contributions: ${contributor.contributions}</p>
+                        <h5 class="card-title text-break"><c:out value="${contributor.login}"/></h5>
+                        <p class="card-text">Contributions: <c:out value="${contributor.contributions}"/></p>
                     </div>
-                      <div class="card-body">
-                        <a href="${contributor.htmlUrl}" target="_blank" class="card-link">GitHub</a>
-                        <a href="/contributions-detail?author=${contributor.login}&repo=${group.repository}&owner=${group.owner}&groupId=${group.id}" class="card-link">Contributions details</a>
-                      </div>
+                    <div class="card-footer bg-transparent border-0 pb-3">
+                        <a href="<c:out value='${contributor.htmlUrl}'/>" target="_blank" rel="noopener noreferrer" class="card-link">GitHub</a>
+                        <c:url var="contributionsUrl" value="/contributions-detail">
+                            <c:param name="author" value="${contributor.login}"/>
+                            <c:param name="repo" value="${group.repository}"/>
+                            <c:param name="owner" value="${group.owner}"/>
+                            <c:param name="groupId" value="${group.id}"/>
+                        </c:url>
+                        <a href="<c:out value='${contributionsUrl}'/>" class="card-link">Contributions details</a>
+                    </div>
                 </div>
             </div>
         </c:forEach>
 
     </div>
 
-    <!-- tabela oculta até o Load Dashboard trazer os dados -->
+    <hr>
+
+    <!-- ajax content init here -->
+
+    <div id="content" class="text-center"
+         data-owner="<c:out value='${group.owner}'/>"
+         data-repo="<c:out value='${group.repository}'/>"
+         data-group-id="<c:out value='${group.id}'/>">
+
+        <!-- period buttons (openspec/changes/filtro-por-marcos): the page loads the dashboard with All on open -->
+        <div class="btn-group flex-wrap mb-2" role="group" aria-label="Period" id="period-buttons">
+            <c:forEach var="option" items="${periodOptions}">
+                <button type="button"
+                        class="btn btn-sm period-button ${option.selected ? 'btn-primary active' : 'btn-outline-primary'}"
+                        data-period="<c:out value='${option.key}'/>"
+                        title="<c:out value='${option.hint}'/>"
+                        ${option.enabled ? '' : 'disabled'}><c:out value="${option.label}"/></button>
+            </c:forEach>
+        </div>
+
+        <details id="custom-period" class="mb-3">
+            <summary class="small">Custom period</summary>
+            <div class="d-inline-flex flex-wrap gap-2 align-items-end mt-2">
+                <div class="text-start">
+                    <label for="since" class="form-label small mb-0">Since</label>
+                    <input type="datetime-local" class="form-control form-control-sm" id="since">
+                </div>
+                <div class="text-start">
+                    <label for="until" class="form-label small mb-0">Until</label>
+                    <input type="datetime-local" class="form-control form-control-sm" id="until" value="<c:out value='${customUntil}'/>">
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" id="applyCustomPeriod">Apply</button>
+            </div>
+        </details>
+
+        <h5 id="dashboard-title" class="d-none"></h5>
+        <p id="dashboard-summary" class="text-body-secondary small d-none"></p>
+        <div id="dashboard-alert" class="alert d-none mb-4" role="alert"></div>
+    </div>
+
+    <div class="mx-auto" id="loader"></div>
+
+    <!-- tabela abaixo dos controles de período; oculta até a primeira carga (automática, ao abrir a página) -->
     <div class="row d-none" id="contributions-section">
 
         <div class="col-12">
 
+          <div class="table-responsive">
           <table class="table table-hover contributions-table">
             <thead>
                 <tr>
@@ -163,22 +221,11 @@
                 </c:forEach>
             </tbody>
           </table>
+          </div>
         </div>
 
     </div>
 
-    <hr>
-
-    <!-- ajax content init here -->
-
-    <div class="mx-auto" id="loader"></div>
-
-    <div id="content" class="text-center">
-        <h5 id="dashboard-title" class="d-none"></h5>
-        <p id="dashboard-summary" class="text-body-secondary small d-none"></p>
-        <div id="dashboard-alert" class="alert d-none" role="alert"></div>
-        <button id="loadDataButton" class="btn btn-primary mb-4">Load Dashboard</button>
-    </div>
 
     <div class="row">
 
@@ -242,12 +289,6 @@
         // Dashboard de contribuições (openspec/changes/corrigir-dashboard-contribuicoes)
         let contributorChart = null;
         let groupContributors = []; // logins renderizados pelo servidor, lidos uma vez ao carregar a página
-
-        // datas da API são UTC: formatar em UTC evita que 2024-01-01T00:01Z vire 31/12/2023 no fuso do Brasil
-        function formatDate(iso) {
-            const d = new Date(iso);
-            return isNaN(d) ? iso : d.toLocaleDateString('en-US', { timeZone: 'UTC' });
-        }
 
         function showAlert(type, text) {
             $("#dashboard-alert")
@@ -331,26 +372,42 @@
             });
         }
 
-        function loadData() {
-            const button = $("#loadDataButton");
+        let selectedPeriod = "all";
 
-            button.prop("disabled", true);
+        function selectPeriodButton(period) {
+            $(".period-button").each(function () {
+                const active = $(this).data("period") === period;
+                $(this).toggleClass("btn-primary active", active).toggleClass("btn-outline-primary", !active);
+            });
+        }
+
+        function loadData() {
+            const content = $("#content");
+
+            const params = {
+                owner: content.data("owner"),
+                repo: content.data("repo"),
+                groupId: content.data("group-id"),
+                period: selectedPeriod
+            };
+
+            if (selectedPeriod === "custom") {
+                params["date-since"] = $("#since").val();
+                params["date-until"] = $("#until").val();
+            }
+
+            $(".period-button, #applyCustomPeriod").prop("disabled", true);
             $("#dashboard-alert").addClass("d-none").text("");
             $("#loader").show();
 
-            axios.get('/contributors-stats', {
-                params: {
-                    owner: '${group.owner}',
-                    repo: '${group.repository}'
-                }
-            })
+            axios.get('/contributors-stats', { params: params })
             .then(function (response) {
                 const data = response.data;
                 const stats = (data.stats && data.stats.consolidatedStats) || [];
 
                 $("#dashboard-title").text(data.message).removeClass("d-none");
                 $("#dashboard-summary")
-                    .text(data.totalCommits + " commits from " + formatDate(data.since) + " to " + formatDate(data.until) + " (merge commits excluded)")
+                    .text(data.totalCommits + " commits · " + data.periodText + " (merge commits excluded)")
                     .removeClass("d-none");
 
                 fillTable(stats);
@@ -369,7 +426,11 @@
             })
             .finally(function () {
                 $("#loader").hide();
-                button.prop("disabled", false).text("Reload Dashboard");
+                // re-enable only the periods the server allowed (disabled = future or not configured)
+                $(".period-button").each(function () {
+                    $(this).prop("disabled", $(this).data("server-disabled") === true);
+                });
+                $("#applyCustomPeriod").prop("disabled", false);
             });
         }
 
@@ -377,7 +438,25 @@
             groupContributors = $("#contributions-tbody tr[data-login]").map(function () {
                 return $(this).attr("data-login");
             }).get();
-            $("#loadDataButton").click(loadData);
+            $(".period-button").each(function () {
+                $(this).data("server-disabled", $(this).prop("disabled"));
+            });
+
+            // the dashboard loads as soon as the page opens (All); period buttons reload it
+            loadData();
+
+            $(".period-button").click(function () {
+                selectedPeriod = $(this).data("period");
+                selectPeriodButton(selectedPeriod);
+                $("#custom-period").prop("open", false);
+                loadData();
+            });
+
+            $("#applyCustomPeriod").click(function () {
+                selectedPeriod = "custom";
+                selectPeriodButton(null);
+                loadData();
+            });
         });
 
     </script>

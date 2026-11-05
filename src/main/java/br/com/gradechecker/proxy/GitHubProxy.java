@@ -88,58 +88,113 @@ public class GitHubProxy {
 
     }
 
-    public List<Commit> getCommits(CommitRequestBody commitRequestBody) {
+    /**
+     * Commits of the repository default branch (optionally of one author) within [since, until],
+     * following pagination up to GH_DASHBOARD_MAX_COMMITS. since/until/author are only sent when defined
+     * (since == null means the whole history). Only complete results are cached.
+     *
+     * @throws GitHubApiException when GitHub answers with an error
+     */
+    public CommitsPage getCommits(CommitRequestBody request) {
 
-        final String cacheKey = String.format("github.commits::%s:%s:%s:%s:%s:%s",
-                commitRequestBody.getOwner(),
-                commitRequestBody.getRepository(),
-                commitRequestBody.getCommitAuthor() == null ? "" : commitRequestBody.getCommitAuthor(),
-                commitRequestBody.getSince() == null ? "" : commitRequestBody.getSince(),
-                commitRequestBody.getUntil() == null ? "" : commitRequestBody.getUntil(),
-                tokenHash(commitRequestBody.getAccessToken())
+        final int maxCommits = maxCommits();
+
+        final String cacheKey = String.format("github.commits::%s:%s:%s:%s:%s:%d:%s",
+                request.getOwner(),
+                request.getRepository(),
+                orDash(request.getCommitAuthor()),
+                orDash(request.getSince()),
+                orDash(request.getUntil()),
+                maxCommits,
+                tokenHash(request.getAccessToken())
         );
 
-         @SuppressWarnings("unchecked")
-         List<Commit> cached = CacheManager.get(cacheKey, List.class);
-         if (cached != null) {
-             return cached;
-         }
+        CommitsPage cached = CacheManager.get(cacheKey, CommitsPage.class);
 
-         String url = baseUrl + "/repos/{owner}/{repo}/commits?since={since}&until={until}&author={author}&per_page={per_page}";
+        if (cached != null) {
+            return cached;
+        }
 
-         try {
+        List<Commit> commits = new ArrayList<>();
+        int maxPages = (maxCommits + PAGE_SIZE - 1) / PAGE_SIZE;
+        int page = 0;
+        boolean hasNext = false;
 
-             String bearerToken = String.format("Bearer %s", commitRequestBody.getAccessToken());
+        do {
 
-             HttpResponse<List<Commit>> responseEntity = Unirest.get(url)
-                     .header("Accept", "application/json")
-                     .header("Authorization", bearerToken)
-                     .header("X-GitHub-Api-Version", githubApiVersion)
-                     .routeParam("owner", commitRequestBody.getOwner())
-                     .routeParam("repo", commitRequestBody.getRepository())
-                     .routeParam("author", commitRequestBody.getCommitAuthor())
-                     .routeParam("since", commitRequestBody.getSince())
-                     .routeParam("until", commitRequestBody.getUntil())
-                     .routeParam("per_page", "100")
-                     .asObject(new GenericType<List<Commit>>() {
-                     });
+            page++;
 
-             logger.info("success on get commits information");
+            HttpResponse<String> response;
 
-             List<Commit> body = responseEntity.getBody();
-             CacheManager.put(cacheKey, body);
+            try {
 
-             return body;
+                kong.unirest.GetRequest get = Unirest.get(baseUrl + "/repos/{owner}/{repo}/commits")
+                        .header("Accept", "application/json")
+                        .header("Authorization", String.format("Bearer %s", request.getAccessToken()))
+                        .header("X-GitHub-Api-Version", githubApiVersion)
+                        .routeParam("owner", request.getOwner())
+                        .routeParam("repo", request.getRepository());
 
-         } catch (Exception e) {
+                kong.unirest.HttpRequest<?> call = get.queryString("per_page", PAGE_SIZE).queryString("page", page);
 
-             logger.error("Error on retrieve commits information. Cause: {}", e.getMessage());
+                if (isPresent(request.getCommitAuthor())) call = call.queryString("author", request.getCommitAuthor());
+                if (isPresent(request.getSince())) call = call.queryString("since", request.getSince());
+                if (isPresent(request.getUntil())) call = call.queryString("until", request.getUntil());
 
-             throw new RuntimeException("Error on retrieve commits information");
+                response = call.asString();
 
-         }
+            } catch (Exception e) {
 
-     }
+                logger.error("Error on retrieve commits information. Cause: {}", e.getMessage());
+                throw new GitHubApiException(502, GitHubApiException.ERROR, "Could not connect to GitHub. Please try again.", e);
+
+            }
+
+            if (response.getStatus() == 409) {
+                // "Git Repository is empty"
+                break;
+            }
+
+            if (response.getStatus() != 200) {
+                throw httpError(response);
+            }
+
+            List<Commit> body;
+
+            try {
+                body = GSON.fromJson(response.getBody(), COMMIT_LIST);
+            } catch (Exception e) {
+                throw new GitHubApiException(502, GitHubApiException.ERROR, "Invalid response from GitHub.", e);
+            }
+
+            if (body != null) commits.addAll(body);
+
+            hasNext = header(response, "Link").contains("rel=\"next\"")
+                    || (body != null && body.size() == PAGE_SIZE && header(response, "Link").isEmpty());
+
+        } while (hasNext && page < maxPages);
+
+        boolean truncated = hasNext && page >= maxPages;
+
+        CommitsPage result = new CommitsPage(commits, truncated);
+
+        logger.info("success on get commits information ({} commits, {} pages, truncated={})", commits.size(), page, truncated);
+
+        CacheManager.put(cacheKey, result);
+
+        return result;
+
+    }
+
+    private static final java.lang.reflect.Type COMMIT_LIST = new com.google.gson.reflect.TypeToken<List<Commit>>() { }.getType();
+
+    private static boolean isPresent(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private static String orDash(String value) {
+        return isPresent(value) ? value : "-";
+    }
 
      public Commit getCommitDetail(CommitRequestBody commitRequestBody, String sha) {
 
@@ -193,7 +248,7 @@ public class GitHubProxy {
     private static final int PAGE_SIZE = 100;
 
     static final String CONTRIBUTIONS_QUERY =
-            "query($owner: String!, $repo: String!, $since: GitTimestamp!, $until: GitTimestamp!, $cursor: String) {"
+            "query($owner: String!, $repo: String!, $since: GitTimestamp, $until: GitTimestamp, $cursor: String) {"
             + " repository(owner: $owner, name: $repo) {"
             + "  defaultBranchRef { target { ... on Commit {"
             + "   history(first: " + PAGE_SIZE + ", since: $since, until: $until, after: $cursor) {"
@@ -217,8 +272,8 @@ public class GitHubProxy {
         final String cacheKey = String.format("github.contributions::%s:%s:%s:%s:%d:%s",
                 request.getOwner(),
                 request.getRepository(),
-                request.getSince(),
-                request.getUntil(),
+                orDash(request.getSince()),
+                orDash(request.getUntil()),
                 maxCommits,
                 tokenHash(request.getAccessToken())
         );
@@ -294,9 +349,10 @@ public class GitHubProxy {
         Map<String, Object> variables = new HashMap<>();
         variables.put("owner", request.getOwner());
         variables.put("repo", request.getRepository());
-        variables.put("since", request.getSince());
-        variables.put("until", request.getUntil());
-        variables.put("cursor", cursor); // null is omitted by Gson on the first page
+        // null values are omitted by Gson: no since = whole history, no cursor = first page
+        variables.put("since", isPresent(request.getSince()) ? request.getSince() : null);
+        variables.put("until", isPresent(request.getUntil()) ? request.getUntil() : null);
+        variables.put("cursor", cursor);
 
         Map<String, Object> body = new HashMap<>();
         body.put("query", CONTRIBUTIONS_QUERY);
@@ -348,13 +404,13 @@ public class GitHubProxy {
 
     }
 
-    private GitHubApiException httpError(HttpResponse<String> response) {
+    private GitHubApiException httpError(HttpResponse<?> response) {
 
         int status = response.getStatus();
         String remaining = header(response, "X-RateLimit-Remaining");
         String retryAfter = header(response, "Retry-After");
 
-        logger.warn("GitHub GraphQL answered HTTP {}", status);
+        logger.warn("GitHub answered HTTP {}", status);
 
         if (status == 401) {
             return new GitHubApiException(401, GitHubApiException.UNAUTHORIZED,
@@ -369,6 +425,11 @@ public class GitHubProxy {
         if (status == 403) {
             return new GitHubApiException(403, GitHubApiException.FORBIDDEN,
                     "The token is not allowed to read this repository.");
+        }
+
+        if (status == 404) {
+            return new GitHubApiException(404, GitHubApiException.NOT_FOUND,
+                    "Repository not found or not accessible with this token.");
         }
 
         return new GitHubApiException(502, GitHubApiException.ERROR,

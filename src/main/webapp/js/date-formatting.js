@@ -1,34 +1,20 @@
-window.onload = function () {
+// Limits the Custom period pickers (Since/Until) to the end of today.
+// Dates shown on the pages are formatted on the server in the configured time zone
+// (milestones.properties -> milestone.timezone), so no fixed offset is applied here.
+window.addEventListener('DOMContentLoaded', function () {
 
     var today = new Date();
 
-    var dd = String(today.getDate()).padStart(2, '0');
-    var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
     var yyyy = today.getFullYear();
-    var hh = String(today.getHours()).padStart(2, '0');
-    var min = String(today.getMinutes()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0'); // January is 0
+    var dd = String(today.getDate()).padStart(2, '0');
 
-    today = yyyy + '-' + mm + '-' + dd + 'T' + hh + ':' + min;
+    var endOfToday = yyyy + '-' + mm + '-' + dd + 'T23:59';
 
-    document.getElementById("since").max = today;
-    document.getElementById("until").max = today;
-};
-
-function dateFormation(date) {
-
-    var isoDate = new Date(date);
-
-    var offset = -3;
-    var localDate = new Date(isoDate.getTime() + (offset * 60 * 60 * 1000));
-
-    var day = String(localDate.getUTCDate()).padStart(2, '0');
-    var month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
-    var year = localDate.getUTCFullYear();
-    var hours = String(localDate.getUTCHours()).padStart(2, '0');
-    var minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
-
-    var formattedDate = day + '/' + month + '/' + year + ' ' + hours + ':' + minutes;
-
-    return formattedDate;
-
-}
+    ['since', 'until'].forEach(function (id) {
+        var input = document.getElementById(id);
+        if (input) {
+            input.max = endOfToday;
+        }
+    });
+});

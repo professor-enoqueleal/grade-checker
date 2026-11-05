@@ -2,7 +2,12 @@ package br.com.gradechecker.servlet;
 
 import br.com.gradechecker.model.Commit;
 import br.com.gradechecker.model.CommitRequestBody;
+import br.com.gradechecker.model.CommitRow;
+import br.com.gradechecker.model.CommitsPage;
+import br.com.gradechecker.proxy.GitHubApiException;
 import br.com.gradechecker.proxy.GitHubProxy;
+import br.com.gradechecker.service.PeriodResolver;
+import br.com.gradechecker.service.PeriodResolver.ResolvedPeriod;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -10,65 +15,106 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.TimeZone;
 
+/**
+ * Commits of one author in a period (milestone buttons, All or Custom).
+ * See openspec/changes/filtro-por-marcos (capabilities milestone-period-filter and commit-history-page).
+ */
 @WebServlet("/contributions-detail")
 public class ContributionsDetailServlet extends HttpServlet {
 
     private final GitHubProxy gitHubProxy;
+    private final PeriodResolver periodResolver;
 
     public ContributionsDetailServlet() {
-        this.gitHubProxy = new GitHubProxy();
+        this(new GitHubProxy(), new PeriodResolver());
+    }
+
+    public ContributionsDetailServlet(GitHubProxy gitHubProxy, PeriodResolver periodResolver) {
+        this.gitHubProxy = gitHubProxy;
+        this.periodResolver = periodResolver;
     }
 
     @Override
-    protected void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
-
-        buildBody(httpServletRequest, httpServletResponse);
-
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        buildBody(request, response);
     }
 
     @Override
-    protected void doPost(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        buildBody(request, response);
+    }
 
-        buildBody(httpServletRequest, httpServletResponse);
+    private void buildBody(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+
+        String author = request.getParameter("author");
+        String owner = request.getParameter("owner");
+        String repo = request.getParameter("repo");
+        String groupId = request.getParameter("groupId");
+
+        ResolvedPeriod period = periodResolver.resolve(
+                request.getParameter("period"), request.getParameter("date-since"), request.getParameter("date-until"));
+
+        if (period.getError() != null) {
+            request.setAttribute("periodWarning", period.getError() + " Showing all history instead.");
+            period = periodResolver.all();
+        }
+
+        String accessToken = (String) request.getSession().getAttribute("accessToken");
+
+        CommitRequestBody commitRequestBody = new CommitRequestBody(
+                repo, owner, author, period.getSinceIso(), period.getUntilIso(), accessToken, groupId);
+
+        List<CommitRow> rows = Collections.emptyList();
+        boolean truncated = false;
+
+        try {
+
+            CommitsPage page = gitHubProxy.getCommits(commitRequestBody);
+            rows = toRows(page.getCommits());
+            truncated = page.isTruncated();
+
+        } catch (GitHubApiException e) {
+
+            request.setAttribute("githubError", e.getMessage());
+
+        }
+
+        request.setAttribute("author", author);
+        request.setAttribute("owner", owner);
+        request.setAttribute("repo", repo);
+        request.setAttribute("groupId", groupId);
+        request.setAttribute("commits", rows);
+        request.setAttribute("totalCommits", rows.size());
+        request.setAttribute("truncated", truncated);
+        request.setAttribute("periodKey", period.getKey());
+        request.setAttribute("periodText", periodResolver.describe(period));
+        request.setAttribute("periodOptions", periodResolver.options(period.getKey()));
+        request.setAttribute("customSince", periodResolver.toInputValue(period.getSince()));
+        request.setAttribute("customUntil", periodResolver.toInputValue(period.getUntil()));
+
+        request.getRequestDispatcher("commits-detail.jsp").forward(request, response);
 
     }
 
-    private void buildBody(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
+    private List<CommitRow> toRows(List<Commit> commits) {
 
-        CommitRequestBody commitRequestBody = getParameters(httpServletRequest);
+        List<CommitRow> rows = new ArrayList<>();
 
-        List<Commit> commits = gitHubProxy.getCommits(commitRequestBody);
+        for (Commit commit : commits) {
 
-        httpServletRequest.setAttribute("author", commitRequestBody.getCommitAuthor());
-        httpServletRequest.setAttribute("commits", commits);
-        httpServletRequest.setAttribute("since", commitRequestBody.getSince());
-        httpServletRequest.setAttribute("until", commitRequestBody.getUntil());
-        httpServletRequest.setAttribute("groupId", commitRequestBody.getGroupId());
+            String date = commit.getCommit() != null && commit.getCommit().getCommitter() != null
+                    ? periodResolver.formatDateTime(commit.getCommit().getCommitter().getIsoDate()) : "";
+            String message = commit.getCommit() != null ? commit.getCommit().getMessage() : "";
+            String url = commit.getHtmlUrl() != null && commit.getHtmlUrl().startsWith("https://github.com/") ? commit.getHtmlUrl() : null;
 
-        httpServletRequest.getRequestDispatcher("commits-detail.jsp").forward(httpServletRequest, httpServletResponse);
+            rows.add(new CommitRow(date, message, commit.getSha(), url));
+        }
 
-    }
-
-    private CommitRequestBody getParameters(HttpServletRequest httpServletRequest) {
-
-        String accessToken = (String) httpServletRequest.getSession().getAttribute("accessToken");
-
-        String repository = httpServletRequest.getParameter("repo");
-        String owner = httpServletRequest.getParameter("owner");
-        String author = httpServletRequest.getParameter("author");
-        String groupId = httpServletRequest.getParameter("groupId");
-        String since = null == httpServletRequest.getParameter("date-since") ? "2024-01-01T00:01:00Z" : httpServletRequest.getParameter("date-since");
-        String until = null == httpServletRequest.getParameter("date-until") ? Instant.now().toString() : httpServletRequest.getParameter("date-until");
-
-        return new CommitRequestBody(repository, owner, author, since, until, accessToken, groupId);
-
+        return rows;
     }
 
 }

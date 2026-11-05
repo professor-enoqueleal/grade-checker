@@ -1,22 +1,24 @@
 package br.com.gradechecker.service;
 
 import br.com.gradechecker.model.CommitRequestBody;
-import br.com.gradechecker.model.ContributorStats;
+import br.com.gradechecker.model.ContributionsReport;
 import br.com.gradechecker.proxy.GitHubProxy;
-
-import java.util.List;
 
 public class ContributorsService {
 
     private final GitHubProxy gitHubProxy;
 
     public ContributorsService() {
-        this.gitHubProxy = new GitHubProxy();
+        this(new GitHubProxy());
     }
 
-    public List<ContributorStats> getCommitsDetails(CommitRequestBody commitRequestBody) {
+    public ContributorsService(GitHubProxy gitHubProxy) {
+        this.gitHubProxy = gitHubProxy;
+    }
 
-        return this.gitHubProxy.getContributorStats(commitRequestBody);
+    public ContributionsReport getContributionsReport(CommitRequestBody commitRequestBody) {
+
+        return this.gitHubProxy.getContributionsReport(commitRequestBody);
 
     }
 

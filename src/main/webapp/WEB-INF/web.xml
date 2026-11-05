@@ -45,6 +45,14 @@
         <url-pattern>/admin/cache/stats</url-pattern>
     </servlet-mapping>
 
+    <!-- Todos os JSPs são arquivos UTF-8; sem isto o Jasper usa ISO-8859-1 e corrompe acentos -->
+    <jsp-config>
+        <jsp-property-group>
+            <url-pattern>*.jsp</url-pattern>
+            <page-encoding>UTF-8</page-encoding>
+        </jsp-property-group>
+    </jsp-config>
+
     <welcome-file-list>
         <welcome-file>/authentication.jsp</welcome-file>
     </welcome-file-list>

@@ -2,6 +2,10 @@ package br.com.gradechecker.proxy;
 
 import br.com.gradechecker.cache.CacheManager;
 import br.com.gradechecker.model.*;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import kong.unirest.GenericType;
 import kong.unirest.HttpResponse;
 import kong.unirest.Unirest;
@@ -14,6 +18,8 @@ import java.util.Base64;
 import java.util.*;
 
 public class GitHubProxy {
+
+    private static final Gson GSON = new Gson();
 
     private final Logger logger = LogManager.getLogger(this.getClass());
 
@@ -182,92 +188,310 @@ public class GitHubProxy {
 
      }
 
-     public List<ContributorStats> getContributorStats(CommitRequestBody commitRequestBody) {
+    static final String MAX_COMMITS_PROPERTY = "GH_DASHBOARD_MAX_COMMITS";
+    static final int DEFAULT_MAX_COMMITS = 1000;
+    private static final int PAGE_SIZE = 100;
 
-        final String cacheKey = String.format("github.stats.contributors::%s:%s:%s",
-                commitRequestBody.getOwner(),
-                commitRequestBody.getRepository(),
-                tokenHash(commitRequestBody.getAccessToken())
+    static final String CONTRIBUTIONS_QUERY =
+            "query($owner: String!, $repo: String!, $since: GitTimestamp!, $until: GitTimestamp!, $cursor: String) {"
+            + " repository(owner: $owner, name: $repo) {"
+            + "  defaultBranchRef { target { ... on Commit {"
+            + "   history(first: " + PAGE_SIZE + ", since: $since, until: $until, after: $cursor) {"
+            + "    pageInfo { hasNextPage endCursor }"
+            + "    nodes { additions deletions parents { totalCount } author { name user { login } } }"
+            + "   } } } }"
+            + " }"
+            + "}";
+
+    /**
+     * Contributions (commits, additions, deletions, percentage) per author of the repository
+     * default branch within [since, until], using the GitHub GraphQL API.
+     * Merge commits are ignored. Only complete results are cached.
+     *
+     * @throws GitHubApiException when GitHub answers with an error (never returns an empty list on error)
+     */
+    public ContributionsReport getContributionsReport(CommitRequestBody request) {
+
+        final int maxCommits = maxCommits();
+
+        final String cacheKey = String.format("github.contributions::%s:%s:%s:%s:%d:%s",
+                request.getOwner(),
+                request.getRepository(),
+                request.getSince(),
+                request.getUntil(),
+                maxCommits,
+                tokenHash(request.getAccessToken())
         );
 
-         final String commitAuthor = commitRequestBody.getCommitAuthor();
+        ContributionsReport cached = CacheManager.get(cacheKey, ContributionsReport.class);
 
-         @SuppressWarnings("unchecked")
-         List<ContributorStats> cached = CacheManager.get(cacheKey, List.class);
-
-         if (cached != null) {
-             return cached;
-         }
-
-         // use the commits API to obtain commit list and aggregate per author to build ContributorStats
-         String url = baseUrl + "/repos/{owner}/{repo}/commits?author={author}";
-
-         String bearerToken = String.format("Bearer %s", commitRequestBody.getAccessToken());
-
-         try {
-
-            // 1) Try to directly deserialize into ContributorStats list (if API returned stats-shaped JSON)
-            HttpResponse<List<ContributorStats>> statsResp = Unirest.get(url)
-                    .header("Accept", "application/json")
-                    .header("Authorization", bearerToken)
-                    .header("X-GitHub-Api-Version", githubApiVersion)
-                    .routeParam("owner", commitRequestBody.getOwner())
-                    .routeParam("repo", commitRequestBody.getRepository())
-                    .routeParam("author", commitRequestBody.getCommitAuthor())
-                    .asObject(new GenericType<java.util.List<ContributorStats>>(){});
-
-            if (statsResp.getStatus() == 200 && statsResp.getBody() != null && !statsResp.getBody().isEmpty() && statsResp.getBody().get(0) != null && statsResp.getBody().get(0).getAuthor() != null) {
-                CacheManager.put(cacheKey, statsResp.getBody());
-                return statsResp.getBody();
-            }
-
-            // 2) Fallback: deserialize into CommitWrapper list and aggregate
-            HttpResponse<List<CommitWrapper>> commitsResp = Unirest.get(url)
-                    .header("Accept", "application/json")
-                    .header("Authorization", bearerToken)
-                    .header("X-GitHub-Api-Version", githubApiVersion)
-                    .routeParam("owner", commitRequestBody.getOwner())
-                    .routeParam("repo", commitRequestBody.getRepository())
-                    .routeParam("author", commitRequestBody.getCommitAuthor())
-                    .asObject(new GenericType<List<CommitWrapper>>(){});
-
-            if (commitsResp.getStatus() != 200 || commitsResp.getBody() == null) {
-                CacheManager.put(cacheKey, java.util.Collections.emptyList());
-                return java.util.Collections.emptyList();
-            }
-
-            Map<String, Integer> counts = new java.util.HashMap<>();
-
-            for (CommitWrapper cw : commitsResp.getBody()) {
-                if (cw == null) continue;
-                String key = null;
-                if (cw.author != null && cw.author.getLogin() != null) {
-                    key = cw.author.getLogin();
-                } else if (cw.commit != null && cw.commit.getCommit() != null && cw.commit.getCommit().getCommitter() != null && cw.commit.getCommit().getCommitter().getName() != null) {
-                    key = cw.commit.getCommit().getCommitter().getName();
-                }
-                if (key != null) counts.put(key, counts.getOrDefault(key, 0) + 1);
-            }
-
-            List<ContributorStats> stats = new java.util.ArrayList<>();
-
-            for (java.util.Map.Entry<String, Integer> e : counts.entrySet()) {
-                ContributorStats cs = new ContributorStats();
-                // use constructor for clarity: (login, id, avatarUrl, htmlUrl, contributions)
-                Contributor author = new Contributor(e.getKey(), 0, null, null, e.getValue());
-                cs.setAuthor(author);
-                cs.setTotal(e.getValue());
-                stats.add(cs);
-            }
-
-            CacheManager.put(cacheKey, stats);
-            return stats;
-
-        } catch (Exception e) {
-            logger.error("Error on retrieve contributor stats on github. Cause: {}", e.getMessage());
-            throw new RuntimeException("Error on retrieve contributor stats on github", e);
+        if (cached != null) {
+            return cached;
         }
 
+        // author -> {commits, additions, deletions}
+        Map<String, int[]> totals = new HashMap<>();
+        int totalCommits = 0;
+        int maxPages = (maxCommits + PAGE_SIZE - 1) / PAGE_SIZE;
+        int pages = 0;
+        String cursor = null;
+        boolean hasNextPage;
+
+        do {
+
+            JsonObject repository = executeContributionsQuery(request, cursor).getAsJsonObject("repository");
+
+            JsonObject history = child(child(child(repository, "defaultBranchRef"), "target"), "history");
+
+            if (history == null) {
+                // empty repository (no default branch) -> no contributions
+                break;
+            }
+
+            for (JsonElement element : history.getAsJsonArray("nodes")) {
+
+                if (element == null || !element.isJsonObject()) continue;
+
+                JsonObject node = element.getAsJsonObject();
+
+                if (integer(child(node, "parents"), "totalCount") > 1) continue; // merge commit
+
+                int[] authorTotals = totals.computeIfAbsent(authorOf(node), k -> new int[3]);
+                authorTotals[0]++;
+                authorTotals[1] += integer(node, "additions");
+                authorTotals[2] += integer(node, "deletions");
+                totalCommits++;
+
+            }
+
+            JsonObject pageInfo = child(history, "pageInfo");
+            hasNextPage = pageInfo != null && pageInfo.has("hasNextPage") && pageInfo.get("hasNextPage").getAsBoolean();
+            cursor = hasNextPage ? text(pageInfo, "endCursor") : null;
+            pages++;
+
+        } while (hasNextPage && cursor != null && pages < maxPages);
+
+        boolean truncated = hasNextPageAfterLimit(pages, maxPages, cursor);
+
+        ContributionsReport report = new ContributionsReport(
+                request.getSince(), request.getUntil(), totalCommits, truncated, consolidate(totals));
+
+        logger.info("success on get contributions report for {}/{} ({} commits, {} pages, truncated={})",
+                request.getOwner(), request.getRepository(), totalCommits, pages, truncated);
+
+        CacheManager.put(cacheKey, report);
+
+        return report;
+
+    }
+
+    private static boolean hasNextPageAfterLimit(int pages, int maxPages, String cursor) {
+        return pages >= maxPages && cursor != null;
+    }
+
+    private JsonObject executeContributionsQuery(CommitRequestBody request, String cursor) {
+
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("owner", request.getOwner());
+        variables.put("repo", request.getRepository());
+        variables.put("since", request.getSince());
+        variables.put("until", request.getUntil());
+        variables.put("cursor", cursor); // null is omitted by Gson on the first page
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("query", CONTRIBUTIONS_QUERY);
+        body.put("variables", variables);
+
+        HttpResponse<String> response;
+
+        try {
+
+            response = Unirest.post(baseUrl + "/graphql")
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", String.format("Bearer %s", request.getAccessToken()))
+                    .body(GSON.toJson(body))
+                    .asString();
+
+        } catch (Exception e) {
+
+            logger.error("Error calling GitHub GraphQL. Cause: {}", e.getMessage());
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Could not connect to GitHub. Please try again.", e);
+
+        }
+
+        int status = response.getStatus();
+
+        if (status != 200) {
+            throw httpError(response);
+        }
+
+        JsonObject json;
+
+        try {
+            json = JsonParser.parseString(response.getBody()).getAsJsonObject();
+        } catch (Exception e) {
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Invalid response from GitHub.", e);
+        }
+
+        if (json.has("errors") && json.get("errors").isJsonArray() && json.getAsJsonArray("errors").size() > 0) {
+            throw graphQlError(json.getAsJsonArray("errors").get(0).getAsJsonObject());
+        }
+
+        JsonObject data = child(json, "data");
+
+        if (data == null || child(data, "repository") == null) {
+            throw new GitHubApiException(404, GitHubApiException.NOT_FOUND, notFoundMessage(request));
+        }
+
+        return data;
+
+    }
+
+    private GitHubApiException httpError(HttpResponse<String> response) {
+
+        int status = response.getStatus();
+        String remaining = header(response, "X-RateLimit-Remaining");
+        String retryAfter = header(response, "Retry-After");
+
+        logger.warn("GitHub GraphQL answered HTTP {}", status);
+
+        if (status == 401) {
+            return new GitHubApiException(401, GitHubApiException.UNAUTHORIZED,
+                    "Invalid or expired GitHub token. Please sign in again.");
+        }
+
+        if ((status == 403 || status == 429) && ("0".equals(remaining) || !retryAfter.isEmpty())) {
+            return new GitHubApiException(429, GitHubApiException.RATE_LIMITED,
+                    rateLimitMessage(header(response, "X-RateLimit-Reset"), retryAfter));
+        }
+
+        if (status == 403) {
+            return new GitHubApiException(403, GitHubApiException.FORBIDDEN,
+                    "The token is not allowed to read this repository.");
+        }
+
+        return new GitHubApiException(502, GitHubApiException.ERROR,
+                "GitHub returned an error (HTTP " + status + "). Please try again.");
+
+    }
+
+    private GitHubApiException graphQlError(JsonObject error) {
+
+        String type = text(error, "type");
+        String message = text(error, "message");
+
+        logger.warn("GitHub GraphQL error: type={} message={}", type, message);
+
+        if ("NOT_FOUND".equals(type)) {
+            return new GitHubApiException(404, GitHubApiException.NOT_FOUND,
+                    "Repository not found or not accessible with this token.");
+        }
+
+        if ("RATE_LIMITED".equals(type)) {
+            return new GitHubApiException(429, GitHubApiException.RATE_LIMITED, rateLimitMessage("", ""));
+        }
+
+        if ("FORBIDDEN".equals(type)) {
+            return new GitHubApiException(403, GitHubApiException.FORBIDDEN,
+                    "The token is not allowed to read this repository.");
+        }
+
+        return new GitHubApiException(502, GitHubApiException.ERROR,
+                "GitHub returned an error: " + (message == null ? type : message));
+
+    }
+
+    private static String header(HttpResponse<?> response, String name) {
+        String value = response.getHeaders().getFirst(name);
+        return value == null ? "" : value.trim();
+    }
+
+    private static String rateLimitMessage(String resetEpoch, String retryAfter) {
+
+        String base = "GitHub API rate limit reached.";
+
+        try {
+            if (resetEpoch != null && !resetEpoch.isEmpty()) {
+                return base + " It resets at " + java.time.Instant.ofEpochSecond(Long.parseLong(resetEpoch)) + ".";
+            }
+            if (retryAfter != null && !retryAfter.isEmpty()) {
+                return base + " Try again in " + Long.parseLong(retryAfter) + " seconds.";
+            }
+        } catch (NumberFormatException ignored) {
+            // fall through to the generic message
+        }
+
+        return base + " Please try again later.";
+
+    }
+
+    private static String notFoundMessage(CommitRequestBody request) {
+        return String.format("Repository %s/%s not found or not accessible with this token.",
+                request.getOwner(), request.getRepository());
+    }
+
+    private static String authorOf(JsonObject commit) {
+
+        JsonObject author = child(commit, "author");
+        String login = text(child(author, "user"), "login");
+
+        if (login != null && !login.isEmpty()) return login;
+
+        String name = text(author, "name");
+
+        return name != null && !name.isEmpty() ? name : "unknown";
+
+    }
+
+    static List<ContributorStatsResponseBody> consolidate(Map<String, int[]> totals) {
+
+        long grandTotal = 0;
+        for (int[] t : totals.values()) grandTotal += (long) t[1] + t[2];
+
+        List<ContributorStatsResponseBody> result = new ArrayList<>();
+
+        for (Map.Entry<String, int[]> entry : totals.entrySet()) {
+            int[] t = entry.getValue();
+            double percentage = grandTotal == 0 ? 0 : Math.round(((double) (t[1] + t[2]) / grandTotal) * 10000) / 100.0;
+            result.add(new ContributorStatsResponseBody(entry.getKey(), t[0], t[1], t[2], percentage));
+        }
+
+        result.sort(Comparator
+                .comparingInt((ContributorStatsResponseBody s) -> s.getTotalAdditions() + s.getTotalDeletions()).reversed()
+                .thenComparing(ContributorStatsResponseBody::getAuthor));
+
+        return result;
+
+    }
+
+    static int maxCommits() {
+
+        String value = System.getProperty(MAX_COMMITS_PROPERTY);
+        if (value == null) value = System.getenv(MAX_COMMITS_PROPERTY);
+
+        try {
+            int parsed = value == null ? DEFAULT_MAX_COMMITS : Integer.parseInt(value.trim());
+            return parsed < 1 ? DEFAULT_MAX_COMMITS : parsed;
+        } catch (NumberFormatException e) {
+            return DEFAULT_MAX_COMMITS;
+        }
+
+    }
+
+    private static JsonObject child(JsonObject parent, String name) {
+        if (parent == null || !parent.has(name) || !parent.get(name).isJsonObject()) return null;
+        return parent.getAsJsonObject(name);
+    }
+
+    private static String text(JsonObject parent, String name) {
+        if (parent == null || !parent.has(name) || parent.get(name).isJsonNull()) return null;
+        return parent.get(name).getAsString();
+    }
+
+    private static int integer(JsonObject parent, String name) {
+        if (parent == null || !parent.has(name) || parent.get(name).isJsonNull()) return 0;
+        return parent.get(name).getAsInt();
     }
 
     /**

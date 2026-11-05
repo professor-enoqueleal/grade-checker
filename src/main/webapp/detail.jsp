@@ -18,6 +18,7 @@
             border-radius: 50%;
             border-top: 5px solid #3498db;
             animation: spin 1s linear infinite;
+            margin: 1.5rem auto;   /* respiro entre o spinner e o botão */
         }
 
         @keyframes spin {
@@ -98,7 +99,7 @@
 
         </div>
 
-    <div>
+    </div>
 
     <hr>
 
@@ -135,7 +136,8 @@
 
     </div>
 
-    <div class="row">
+    <!-- tabela oculta até o Load Dashboard trazer os dados -->
+    <div class="row d-none" id="contributions-section">
 
         <div class="col-12">
 
@@ -149,30 +151,33 @@
                     <th scope="col">Percentage</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="contributions-tbody">
                 <c:forEach var="contributor" items="${group.contributors}">
-                    <tr>
-                        <td>${contributor.login}</td>
-                        <td>${contributor.contributions}</td>
-                        <td>#</td>
-                        <td>#</td>
-                        <td>#</td>
+                    <tr data-login="<c:out value='${contributor.login}'/>">
+                        <td><c:out value="${contributor.login}"/></td>
+                        <td>&mdash;</td>
+                        <td>&mdash;</td>
+                        <td>&mdash;</td>
+                        <td>&mdash;</td>
                     </tr>
                 </c:forEach>
             </tbody>
           </table>
         </div>
 
-    <div>
+    </div>
 
     <hr>
 
     <!-- ajax content init here -->
 
-    <div class="text-center" id="loader"></div>
+    <div class="mx-auto" id="loader"></div>
 
     <div id="content" class="text-center">
-        <button id="loadDataButton" class="btn btn-primary">Load Dashboard</button>
+        <h5 id="dashboard-title" class="d-none"></h5>
+        <p id="dashboard-summary" class="text-body-secondary small d-none"></p>
+        <div id="dashboard-alert" class="alert d-none" role="alert"></div>
+        <button id="loadDataButton" class="btn btn-primary mb-4">Load Dashboard</button>
     </div>
 
     <div class="row">
@@ -185,7 +190,7 @@
 
         <div class="col-3"></div>
 
-    <div>
+    </div>
 
     <!-- ajax content end here -->
 
@@ -234,76 +239,144 @@
 <!-- end modal -->
 
 <script>
-        function loadData() {
+        // Dashboard de contribuições (openspec/changes/corrigir-dashboard-contribuicoes)
+        let contributorChart = null;
+        let groupContributors = []; // logins renderizados pelo servidor, lidos uma vez ao carregar a página
 
-            // show loader
+        // datas da API são UTC: formatar em UTC evita que 2024-01-01T00:01Z vire 31/12/2023 no fuso do Brasil
+        function formatDate(iso) {
+            const d = new Date(iso);
+            return isNaN(d) ? iso : d.toLocaleDateString('en-US', { timeZone: 'UTC' });
+        }
+
+        function showAlert(type, text) {
+            $("#dashboard-alert")
+                .removeClass("d-none alert-warning alert-danger alert-info")
+                .addClass("alert-" + type)
+                .text(text);
+        }
+
+        function cell(text) {
+            return $("<td>").text(text);
+        }
+
+        function fillTable(stats) {
+            const tbody = $("#contributions-tbody");
+
+            const seen = new Set();
+            tbody.empty();
+
+            stats.forEach(function (stat) {
+                seen.add(stat.author);
+                $("<tr>").attr("data-login", stat.author)
+                    .append(cell(stat.author))
+                    .append(cell(stat.commits))
+                    .append(cell(stat.totalAdditions))
+                    .append(cell(stat.totalDeletions))
+                    .append(cell(Number(stat.percentage).toFixed(2) + "%"))
+                    .appendTo(tbody);
+            });
+
+            // contribuidores sem commits no período aparecem zerados
+            groupContributors.filter(function (login) { return !seen.has(login); }).forEach(function (login) {
+                $("<tr>").attr("data-login", login).addClass("text-body-secondary")
+                    .append(cell(login)).append(cell(0)).append(cell(0)).append(cell(0)).append(cell("0.00%"))
+                    .appendTo(tbody);
+            });
+
+            $("#contributions-section").removeClass("d-none");
+        }
+
+        function drawChart(stats) {
+            if (contributorChart) {
+                contributorChart.destroy();
+                contributorChart = null;
+            }
+
+            const canvas = document.getElementById('contributorPierChart');
+            const total = stats.reduce(function (sum, s) { return sum + s.totalAdditions + s.totalDeletions; }, 0);
+
+            if (stats.length === 0 || total === 0) {
+                $(canvas).addClass("d-none");
+                showAlert("info", "No contributions found in this period.");
+                return;
+            }
+
+            $(canvas).removeClass("d-none");
+
+            contributorChart = new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: stats.map(function (s) { return s.author; }),
+                    datasets: [{
+                        data: stats.map(function (s) { return s.totalAdditions + s.totalDeletions; }),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'],
+                        hoverBackgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function (item) {
+                                    const s = stats[item.dataIndex];
+                                    return (s.totalAdditions + s.totalDeletions) + ' lines changed (' + Number(s.percentage).toFixed(2) + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function loadData() {
+            const button = $("#loadDataButton");
+
+            button.prop("disabled", true);
+            $("#dashboard-alert").addClass("d-none").text("");
             $("#loader").show();
 
-            axios.get('contributors-stats', {
+            axios.get('/contributors-stats', {
                 params: {
                     owner: '${group.owner}',
                     repo: '${group.repository}'
                 }
             })
-            .then(function(response) {
-                // hidden loader
-                $("#loader").hide();
+            .then(function (response) {
+                const data = response.data;
+                const stats = (data.stats && data.stats.consolidatedStats) || [];
 
-                // console.log('Message: ', response.data);
+                $("#dashboard-title").text(data.message).removeClass("d-none");
+                $("#dashboard-summary")
+                    .text(data.totalCommits + " commits from " + formatDate(data.since) + " to " + formatDate(data.until) + " (merge commits excluded)")
+                    .removeClass("d-none");
 
-                // show servlet returned content in the page
-                const returnedMessage = response.data.message;
-                let contentHtml = '<div class="text-center"><p>' + returnedMessage + '</p></div>';
-                $("#content").html(contentHtml);
+                fillTable(stats);
+                drawChart(stats);
 
-                // build dashboard to show
-                const stats = response.data.stats.consolidatedStats;
-                const labels = stats.map(stat => stat.author);
-                const data = stats.map(stat => stat.totalAdditions + stat.totalDeletions);
-
-                // show dashboard
-                const ctx = document.getElementById('contributorPierChart').getContext('2d');
-                const chartData = {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'],
-                        hoverBackgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
-                    }]
-                };
-
-                const contributorPierChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: chartData,
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(tooltipItem) {
-                                        const value = chartData.datasets[0].data[tooltipItem.dataIndex];
-                                        const total = chartData.datasets[0].data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((value / total) * 100).toFixed(2);
-                                        return value + ' (' + percentage + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
+                if (data.truncated) {
+                    showAlert("warning", "Only the " + data.totalCommits + " most recent commits in this period were considered (configured limit).");
+                }
             })
-            .catch(function(error) {
+            .catch(function (error) {
+                const body = error.response && error.response.data;
+                const message = body && body.message ? body.message : "Could not load the dashboard. Please try again.";
+                $("#contributions-section").addClass("d-none"); // não exibir dados de uma carga anterior junto do erro
+                showAlert("danger", message);
+                console.error("Error loading contributions dashboard:", error);
+            })
+            .finally(function () {
                 $("#loader").hide();
-                $("#content").html("Error loading dynamic content!");
-                console.error("Error loading content:", error);
+                button.prop("disabled", false).text("Reload Dashboard");
             });
         }
 
-        $(document).ready(function() {
+        $(document).ready(function () {
+            groupContributors = $("#contributions-tbody tr[data-login]").map(function () {
+                return $(this).attr("data-login");
+            }).get();
             $("#loadDataButton").click(loadData);
         });
 

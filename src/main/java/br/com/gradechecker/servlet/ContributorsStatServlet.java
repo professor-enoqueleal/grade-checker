@@ -1,9 +1,9 @@
 package br.com.gradechecker.servlet;
 
 import br.com.gradechecker.model.CommitRequestBody;
-import br.com.gradechecker.model.ContributorStats;
-import br.com.gradechecker.model.ContributorStatsResponseBody;
+import br.com.gradechecker.model.ContributionsReport;
 import br.com.gradechecker.model.ContributorStatsCommand;
+import br.com.gradechecker.proxy.GitHubApiException;
 import br.com.gradechecker.service.ContributorsService;
 import com.google.gson.Gson;
 import jakarta.servlet.ServletException;
@@ -11,80 +11,108 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @WebServlet("/contributors-stats")
 public class ContributorsStatServlet extends HttpServlet {
 
+    static final String DEFAULT_SINCE = "2024-01-01T00:01:00Z";
+
+    private final Logger logger = LogManager.getLogger(this.getClass());
+
     private final ContributorsService contributorsService;
     private final Gson gson;
 
     public ContributorsStatServlet() {
-        this.contributorsService = new ContributorsService();
+        this(new ContributorsService());
+    }
+
+    public ContributorsStatServlet(ContributorsService contributorsService) {
+        this.contributorsService = contributorsService;
         this.gson = new Gson();
     }
 
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        CommitRequestBody commitRequestBody = getParameters(request);
+        String owner = request.getParameter("owner");
+        String repo = request.getParameter("repo");
 
-        List<ContributorStats> contributorStatsList = contributorsService.getCommitsDetails(commitRequestBody);
+        if (isBlank(owner) || isBlank(repo)) {
+            writeError(response, HttpServletResponse.SC_BAD_REQUEST, "bad_request", "The 'owner' and 'repo' parameters are required.");
+            return;
+        }
 
-        Map<String, Object> content = new HashMap<>();
-        content.put("message", "Contributions Dashboard");
+        CommitRequestBody commitRequestBody = getParameters(request, owner, repo);
 
-        ContributorStatsCommand responseBody = new ContributorStatsCommand(consolidateStats(contributorStatsList));
+        try {
 
-        content.put("stats", responseBody);
+            ContributionsReport report = contributorsService.getContributionsReport(commitRequestBody);
 
-        String jsonResponse = gson.toJson(content);
+            Map<String, Object> content = new LinkedHashMap<>();
+            content.put("message", "Contributions Dashboard");
+            content.put("since", report.getSince());
+            content.put("until", report.getUntil());
+            content.put("totalCommits", report.getTotalCommits());
+            content.put("truncated", report.isTruncated());
+            content.put("stats", new ContributorStatsCommand(report.getConsolidatedStats()));
 
-        response.getWriter().write(jsonResponse);
+            response.getWriter().write(gson.toJson(content));
 
-    }
+        } catch (GitHubApiException e) {
 
-    private List<ContributorStatsResponseBody> consolidateStats(List<ContributorStats> contributorStatsList) {
-
-        List<ContributorStatsResponseBody> body = new ArrayList<>();
-
-        for (ContributorStats stat : contributorStatsList) {
-
-            String author = stat.getAuthor().getLogin();
-            int additions = stat.getTotalAdditions();
-            int deletions = stat.getTotalDeletions();
-
-            ContributorStatsResponseBody committerStat = new ContributorStatsResponseBody(author, additions, deletions);
-
-            body.add(committerStat);
+            logger.warn("Contributions dashboard failed for {}/{}: {} ({})", owner, repo, e.getErrorCode(), e.getMessage());
+            writeError(response, e.getHttpStatus(), e.getErrorCode(), e.getMessage());
 
         }
 
-        return body;
+    }
+
+    private void writeError(HttpServletResponse response, int status, String error, String message) throws IOException {
+
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("error", error);
+        body.put("message", message);
+
+        response.setStatus(status);
+        response.getWriter().write(gson.toJson(body));
 
     }
 
-    private CommitRequestBody getParameters(HttpServletRequest httpServletRequest) {
+    private CommitRequestBody getParameters(HttpServletRequest httpServletRequest, String owner, String repo) {
 
         String accessToken = (String) httpServletRequest.getSession().getAttribute("accessToken");
 
-        String repository = httpServletRequest.getParameter("repo");
-        String owner = httpServletRequest.getParameter("owner");
         String author = httpServletRequest.getParameter("author");
         String groupId = httpServletRequest.getParameter("groupId");
-        String since = null == httpServletRequest.getParameter("date-since") ? "2024-01-01T00:01:00Z" : httpServletRequest.getParameter("date-since");
-        String until = null == httpServletRequest.getParameter("date-until") ? Instant.now().toString() : httpServletRequest.getParameter("date-until");
+        String since = isBlank(httpServletRequest.getParameter("date-since")) ? DEFAULT_SINCE : httpServletRequest.getParameter("date-since");
+        String until = isBlank(httpServletRequest.getParameter("date-until")) ? defaultUntil(Instant.now()) : httpServletRequest.getParameter("date-until");
 
-        return new CommitRequestBody(repository, owner, author, since, until, accessToken, groupId);
+        return new CommitRequestBody(repo, owner, author, since, until, accessToken, groupId);
 
+    }
+
+    /** Now rounded up to the next minute: stable cache key within the minute, no recent commit left out. */
+    static String defaultUntil(Instant now) {
+
+        Instant truncated = now.truncatedTo(ChronoUnit.MINUTES);
+
+        return (truncated.equals(now) ? truncated : truncated.plus(1, ChronoUnit.MINUTES)).toString();
+
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
 }

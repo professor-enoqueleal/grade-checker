@@ -27,7 +27,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* contributor avatar: always square, fills the card (openspec/changes/cards-responsivos) */
+        /* contributor avatar: Bootstrap card-img-top, square and edge to edge (openspec/changes/cards-responsivos) */
         .avatar-card-img {
             aspect-ratio: 1 / 1;
             object-fit: cover;
@@ -123,8 +123,8 @@
 
     <h4>Contributors</h4>
 
-    <!-- 1 column < 576px, 2 columns 576-991px, 3 columns >= 992px; cards fill their column -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 mb-4">
+    <!-- 1 column < 576px, 2 >= 576px, 3 >= 768px, 4 >= 992px: narrower cards keep the square avatar small -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mb-4">
 
         <c:forEach var="contributor" items="${group.contributors}">
             <div class="col">

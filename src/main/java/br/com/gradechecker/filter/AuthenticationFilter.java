@@ -29,6 +29,7 @@ public class AuthenticationFilter implements Filter {
     static final Set<String> PUBLIC_PATHS = Set.of(
             "/",
             "/login",
+            "/login/github",   // starts the GitHub OAuth flow
             "/logout",
             "/callback",
             "/authentication.jsp",

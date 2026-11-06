@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.io.PrintWriter;
 
 /**
@@ -19,19 +21,24 @@ import java.io.PrintWriter;
  *
  * Protect with header X-ADMIN-TOKEN matching env GCACHE_ADMIN_SECRET.
  */
-@WebServlet(name = "AdminCacheServlet", urlPatterns = {"/admin/cache"})
+@WebServlet(name = "AdminCacheServlet", urlPatterns = {"/admin/cache", "/admin/cache/stats"})
 public class AdminCacheServlet extends HttpServlet {
 
     private static final String ADMIN_TOKEN_ENV = "GCACHE_ADMIN_SECRET";
     private static final String ADMIN_HEADER = "X-ADMIN-TOKEN";
 
-    private boolean authorize(HttpServletRequest req) {
-        String secret = System.getenv(ADMIN_TOKEN_ENV);
+    boolean authorize(HttpServletRequest req) {
+        String secret = System.getProperty(ADMIN_TOKEN_ENV);
+        if (secret == null || secret.isEmpty()) secret = System.getenv(ADMIN_TOKEN_ENV);
         if (secret == null || secret.isEmpty()) {
             return false; // deny by default
         }
         String header = req.getHeader(ADMIN_HEADER);
-        return secret.equals(header);
+        if (header == null) {
+            return false;
+        }
+        // constant-time comparison: response time must not reveal how much of the token matched
+        return MessageDigest.isEqual(secret.getBytes(StandardCharsets.UTF_8), header.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override

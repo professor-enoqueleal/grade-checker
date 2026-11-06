@@ -48,6 +48,15 @@ public class GitHubProxyContributionsTest {
                 + ",\"author\":{\"name\":" + authorName + ",\"user\":" + user + "}}";
     }
 
+    private static String commit(String login, String name, String email, int additions, int deletions) {
+        String user = login == null ? "null" : "{\"login\":\"" + login + "\"}";
+        String authorName = name == null ? "null" : "\"" + name + "\"";
+        String authorEmail = email == null ? "null" : "\"" + email + "\"";
+        return "{\"additions\":" + additions + ",\"deletions\":" + deletions
+                + ",\"parents\":{\"totalCount\":1}"
+                + ",\"author\":{\"name\":" + authorName + ",\"email\":" + authorEmail + ",\"user\":" + user + "}}";
+    }
+
     private static String page(boolean hasNextPage, String endCursor, String... commits) {
         return "{\"data\":{\"repository\":{\"defaultBranchRef\":{\"target\":{\"history\":{"
                 + "\"pageInfo\":{\"hasNextPage\":" + hasNextPage + ",\"endCursor\":" + (endCursor == null ? "null" : "\"" + endCursor + "\"") + "},"
@@ -140,6 +149,123 @@ public class GitHubProxyContributionsTest {
 
         assertEquals("Maria Silva", stats.get(0).getAuthor());
         assertEquals("unknown", stats.get(1).getAuthor());
+    }
+
+    // ---------- author identities (openspec change identidades-autores) ----------
+
+    private static ContributorStatsResponseBody row(List<ContributorStatsResponseBody> stats, String author) {
+        return stats.stream().filter(r -> r.getAuthor().equals(author)).findFirst()
+                .orElseThrow(() -> new AssertionError("no row for " + author + " in " + stats.stream().map(ContributorStatsResponseBody::getAuthor).toList()));
+    }
+
+    @Test
+    public void queryRequestsAuthorEmail() {
+        stubGraphQl(page(false, null));
+        proxy.getContributionsReport(request);
+        verify(postRequestedFor(urlEqualTo("/graphql")).withRequestBody(matchingJsonPath("$.query", containing("author { name email user { login } }"))));
+    }
+
+    @Test
+    public void unlinkedCommitWithEmailOfLinkedCommitIsMergedEvenFromALaterPage() {
+        stubFor(post(urlEqualTo("/graphql")).atPriority(5)
+                .willReturn(okJson(page(true, "C1", commit(null, "JOAO VITOR", "Joao@Escola.edu", 8, 0)))));
+        stubFor(post(urlEqualTo("/graphql")).atPriority(1)
+                .withRequestBody(matchingJsonPath("$.variables.cursor", equalTo("C1")))
+                .willReturn(okJson(page(false, null, commit("joaolima16", "joao", "joao@escola.edu", 10, 2)))));
+
+        List<ContributorStatsResponseBody> stats = proxy.getContributionsReport(request).getConsolidatedStats();
+
+        assertEquals(1, stats.size());
+        ContributorStatsResponseBody joao = row(stats, "joaolima16");
+        assertEquals(2, joao.getCommits());
+        assertEquals(18, joao.getTotalAdditions());
+        assertTrue(joao.isLinked());
+        assertEquals(List.of("JOAO VITOR <Joao@Escola.edu>"), joao.getGitIdentities()); // merged commit is auditable
+    }
+
+    @Test
+    public void unlinkedCommitWhoseGitNameIsExactlyALoginIsMerged() {
+        // group 6 (cannamed): e-mail without "@", git name equal to the login
+        stubGraphQl(page(false, null,
+                commit("thiagofp77", "thiagofp77", "thi@gmail.com", 1000, 22),
+                commit(null, "thiagofp77", "thiiago.fp7gmail.com", 500, 58),
+                commit(null, " ThiagoFP77 ", "other@escola.edu", 1, 0)));   // case/spaces ignored, valid but unlinked e-mail
+
+        List<ContributorStatsResponseBody> stats = proxy.getContributionsReport(request).getConsolidatedStats();
+
+        assertEquals(1, stats.size());
+        ContributorStatsResponseBody thiago = stats.get(0);
+        assertEquals("thiagofp77", thiago.getAuthor());
+        assertEquals(3, thiago.getCommits());
+        assertEquals(1581, thiago.getTotalAdditions() + thiago.getTotalDeletions());
+        assertTrue(thiago.isLinked());
+        assertEquals(List.of("thiagofp77 <thiiago.fp7gmail.com>", "ThiagoFP77 <other@escola.edu>"), thiago.getGitIdentities());
+    }
+
+    @Test
+    public void linkedAuthorWithoutUnlinkedCommitsHasNoIdentities() {
+        stubGraphQl(page(false, null, commit("alice", "Alice", "alice@x.com", 1, 0)));
+
+        assertTrue(proxy.getContributionsReport(request).getConsolidatedStats().get(0).getGitIdentities().isEmpty());
+    }
+
+    @Test
+    public void ambiguousEmailIsNotMerged() {
+        stubGraphQl(page(false, null,
+                commit("alice", "Alice", "lab@escola.edu", 5, 0),
+                commit("bob", "Bob", "lab@escola.edu", 5, 0),
+                commit(null, "Someone", "lab@escola.edu", 3, 0)));
+
+        List<ContributorStatsResponseBody> stats = proxy.getContributionsReport(request).getConsolidatedStats();
+
+        assertEquals(1, row(stats, "alice").getCommits());
+        assertEquals(1, row(stats, "bob").getCommits());
+        ContributorStatsResponseBody orphan = row(stats, "Someone");
+        assertFalse(orphan.isLinked());
+        assertEquals(List.of("Someone <lab@escola.edu>"), orphan.getGitIdentities());
+    }
+
+    @Test
+    public void unlinkedCommitsAreGroupedByEmailNotByName() {
+        stubGraphQl(page(false, null,
+                commit(null, "joao", "joao@escola.edu", 4, 0),
+                commit(null, "JOAO VITOR", "JOAO@escola.edu", 6, 1)));
+
+        List<ContributorStatsResponseBody> stats = proxy.getContributionsReport(request).getConsolidatedStats();
+
+        assertEquals(1, stats.size());
+        ContributorStatsResponseBody joao = stats.get(0);
+        assertEquals("joao", joao.getAuthor()); // first non-empty name
+        assertEquals(2, joao.getCommits());
+        assertFalse(joao.isLinked());
+        assertEquals(List.of("joao <joao@escola.edu>", "JOAO VITOR <JOAO@escola.edu>"), joao.getGitIdentities());
+    }
+
+    @Test
+    public void invalidEmailFallsBackToNameAndSimilarNamesAreNotMerged() {
+        stubGraphQl(page(false, null,
+                commit("joaolima16", "joao", "joao@gmail.com", 10, 0),
+                commit(null, "joaolima", "=", 2, 0),
+                commit(null, "joaolima", "=", 1, 0),
+                commit(null, "=", "=", 1, 0)));
+
+        List<ContributorStatsResponseBody> stats = proxy.getContributionsReport(request).getConsolidatedStats();
+
+        assertEquals(1, row(stats, "joaolima16").getCommits());
+        ContributorStatsResponseBody byName = row(stats, "joaolima");
+        assertEquals(2, byName.getCommits());
+        assertFalse(byName.isLinked());
+        assertEquals(List.of("joaolima <=>"), byName.getGitIdentities());
+        assertFalse(row(stats, "=").isLinked());
+    }
+
+    @Test
+    public void validEmailDetection() {
+        assertTrue(AuthorAggregator.isValidEmail("a@b.c"));
+        assertTrue(AuthorAggregator.isValidEmail(" 123+login@users.noreply.github.com "));
+        for (String invalid : new String[]{null, "", "=", "@b", "a@", "a@b@c", "nome sem arroba"}) {
+            assertFalse(invalid, AuthorAggregator.isValidEmail(invalid));
+        }
     }
 
     @Test

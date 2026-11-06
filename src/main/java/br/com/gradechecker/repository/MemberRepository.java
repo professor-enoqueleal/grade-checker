@@ -3,7 +3,6 @@ package br.com.gradechecker.repository;
 import br.com.gradechecker.cache.CacheManager;
 import br.com.gradechecker.config.ConnectionPoolConfig;
 import br.com.gradechecker.model.Member;
-import br.com.gradechecker.repository.queries.Queries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -128,7 +127,7 @@ public class MemberRepository {
 
         // build dynamic IN clause placeholders
         String inClause = usernames.stream().map(s -> "?").collect(Collectors.joining(", "));
-        String selectSqlTemplate = Queries.get("member.selectUsernamesByGroupIdAndUsernames");
+        String selectSqlTemplate = SqlQueries.MEMBERS_SELECT_USERNAMES_BY_GROUP_AND_LIST;
         String selectSql = String.format(selectSqlTemplate, inClause);
 
         // find existing usernames

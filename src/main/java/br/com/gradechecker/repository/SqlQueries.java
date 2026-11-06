@@ -16,5 +16,12 @@ public final class SqlQueries {
     public static final String MEMBERS_COUNT_BY_GROUP_ID = Queries.get("member.countByGroupId");
     public static final String MEMBERS_COUNT_BY_GROUP_ID_AND_USERNAME = Queries.get("member.countByGroupIdAndUsername");
     public static final String MEMBERS_UPDATE_GITHUB_ID_AND_CONTRIBUTIONS = Queries.get("member.updateGithubIdAndContributions");
+    /** Contains %s: fill it ONLY with "?" placeholders. */
+    public static final String MEMBERS_SELECT_USERNAMES_BY_GROUP_AND_LIST = Queries.get("member.selectUsernamesByGroupIdAndUsernames");
+
+    // CONTRIBUTORS
+    public static final String CONTRIBUTORS_SELECT_BY_GROUP_ID = Queries.get("contributors.findByGroupId");
+    public static final String CONTRIBUTORS_INSERT = Queries.get("contributors.insert");
+    public static final String CONTRIBUTORS_EXISTS_BY_ID = Queries.get("contributors.existsById");
 
 }

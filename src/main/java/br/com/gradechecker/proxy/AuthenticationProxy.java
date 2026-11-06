@@ -1,5 +1,6 @@
 package br.com.gradechecker.proxy;
 
+import br.com.gradechecker.config.GitHubOAuthConfig;
 import br.com.gradechecker.model.AccessToken;
 import kong.unirest.HttpResponse;
 import kong.unirest.Unirest;
@@ -10,23 +11,24 @@ public class AuthenticationProxy {
 
     private final Logger logger = LogManager.getLogger(this.getClass());
 
-    // baseURL can still come from env var
-    private static final String baseURL = System.getProperty("GITHUB_BASE_URL") != null ? System.getProperty("GITHUB_BASE_URL") : System.getenv("GITHUB_BASE_URL");
-
+    /**
+     * Exchanges the OAuth code for a user access token.
+     *
+     * @return the token, or null when GitHub does not return one (expired/invalid code)
+     * @throws IllegalStateException when the client credentials are not configured
+     * @throws RuntimeException when the call to GitHub fails
+     */
     public AccessToken exchangeCodePerToken(String code) {
 
-        String clientId = System.getProperty("GITHUB_CLIENT_ID");
-        if (clientId == null) clientId = System.getenv("GITHUB_CLIENT_ID");
-
-        String clientSecret = System.getProperty("GITHUB_CLIENT_SECRET");
-        if (clientSecret == null) clientSecret = System.getenv("GITHUB_CLIENT_SECRET");
+        String clientId = GitHubOAuthConfig.clientId();
+        String clientSecret = GitHubOAuthConfig.clientSecret();
 
         if (clientId == null || clientSecret == null) {
             logger.error("GitHub client credentials not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables or system properties.");
             throw new IllegalStateException("GitHub client credentials not configured");
         }
 
-        String url = (baseURL != null ? baseURL : "https://github.com").concat("/login/oauth/access_token");
+        String url = GitHubOAuthConfig.baseUrl() + "/login/oauth/access_token";
 
         try {
 
@@ -38,17 +40,22 @@ public class AuthenticationProxy {
                     .field("code", code)
                     .asObject(AccessToken.class);
 
-            responseEntity.getStatus();
+            AccessToken token = responseEntity.getBody();
+
+            if (responseEntity.getStatus() != 200 || token == null || token.getAccessToken() == null || token.getAccessToken().isEmpty()) {
+                logger.warn("GitHub did not return an access token (HTTP {})", responseEntity.getStatus());
+                return null;
+            }
 
             logger.info("success on exchange code per token");
 
-            return responseEntity.getBody();
+            return token;
 
         } catch (Exception e) {
 
             logger.error("Error on exchange code per token. Cause: {}", e.getMessage());
 
-            throw new RuntimeException("Error on exchange code per token");
+            throw new RuntimeException("Error on exchange code per token", e);
 
         }
 

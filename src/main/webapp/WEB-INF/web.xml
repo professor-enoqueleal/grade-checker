@@ -30,20 +30,7 @@
         <url-pattern>/console/*</url-pattern>
     </servlet-mapping>
 
-    <servlet>
-        <servlet-name>AdminCacheServlet</servlet-name>
-        <servlet-class>br.com.gradechecker.servlet.AdminCacheServlet</servlet-class>
-    </servlet>
-
-    <servlet-mapping>
-        <servlet-name>AdminCacheServlet</servlet-name>
-        <url-pattern>/admin/cache</url-pattern>
-    </servlet-mapping>
-
-    <servlet-mapping>
-        <servlet-name>AdminCacheServlet</servlet-name>
-        <url-pattern>/admin/cache/stats</url-pattern>
-    </servlet-mapping>
+    <!-- AdminCacheServlet is registered by @WebServlet (/admin/cache and /admin/cache/stats) -->
 
     <!-- Todos os JSPs são arquivos UTF-8; sem isto o Jasper usa ISO-8859-1 e corrompe acentos -->
     <jsp-config>

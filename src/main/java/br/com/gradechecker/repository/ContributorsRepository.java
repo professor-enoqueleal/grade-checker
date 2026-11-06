@@ -3,7 +3,6 @@ package br.com.gradechecker.repository;
 import br.com.gradechecker.cache.CacheManager;
 import br.com.gradechecker.config.ConnectionPoolConfig;
 import br.com.gradechecker.model.Contributor;
-import br.com.gradechecker.repository.queries.Queries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -27,7 +26,7 @@ public class ContributorsRepository {
             return cached;
         }
 
-        final String sqlCommand = Queries.get("contributors.findByGroupId");
+        final String sqlCommand = SqlQueries.CONTRIBUTORS_SELECT_BY_GROUP_ID;
 
         try (Connection connection = ConnectionPoolConfig.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sqlCommand)) {
@@ -80,7 +79,7 @@ public class ContributorsRepository {
 
     public void create(List<Contributor> contributors, Long groupId) {
 
-        String sqlCommand = Queries.get("contributors.insert");
+        String sqlCommand = SqlQueries.CONTRIBUTORS_INSERT;
 
         if (contributors == null || contributors.isEmpty()) {
             return;
@@ -122,8 +121,8 @@ public class ContributorsRepository {
 
         if (contributor == null) return;
 
-        final String checkSql = Queries.get("contributors.existsById");
-        final String insertSql = Queries.get("contributors.insert");
+        final String checkSql = SqlQueries.CONTRIBUTORS_EXISTS_BY_ID;
+        final String insertSql = SqlQueries.CONTRIBUTORS_INSERT;
 
         try (Connection connection = ConnectionPoolConfig.getConnection()) {
 

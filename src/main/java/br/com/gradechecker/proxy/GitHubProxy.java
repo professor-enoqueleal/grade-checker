@@ -253,7 +253,7 @@ public class GitHubProxy {
             + "  defaultBranchRef { target { ... on Commit {"
             + "   history(first: " + PAGE_SIZE + ", since: $since, until: $until, after: $cursor) {"
             + "    pageInfo { hasNextPage endCursor }"
-            + "    nodes { additions deletions parents { totalCount } author { name user { login } } }"
+            + "    nodes { additions deletions parents { totalCount } author { name email user { login } } }"
             + "   } } } }"
             + " }"
             + "}";
@@ -284,8 +284,7 @@ public class GitHubProxy {
             return cached;
         }
 
-        // author -> {commits, additions, deletions}
-        Map<String, int[]> totals = new HashMap<>();
+        AuthorAggregator aggregator = new AuthorAggregator();
         int totalCommits = 0;
         int maxPages = (maxCommits + PAGE_SIZE - 1) / PAGE_SIZE;
         int pages = 0;
@@ -311,10 +310,9 @@ public class GitHubProxy {
 
                 if (integer(child(node, "parents"), "totalCount") > 1) continue; // merge commit
 
-                int[] authorTotals = totals.computeIfAbsent(authorOf(node), k -> new int[3]);
-                authorTotals[0]++;
-                authorTotals[1] += integer(node, "additions");
-                authorTotals[2] += integer(node, "deletions");
+                JsonObject author = child(node, "author");
+                aggregator.add(text(child(author, "user"), "login"), text(author, "name"), text(author, "email"),
+                        integer(node, "additions"), integer(node, "deletions"));
                 totalCommits++;
 
             }
@@ -329,7 +327,7 @@ public class GitHubProxy {
         boolean truncated = hasNextPageAfterLimit(pages, maxPages, cursor);
 
         ContributionsReport report = new ContributionsReport(
-                request.getSince(), request.getUntil(), totalCommits, truncated, consolidate(totals));
+                request.getSince(), request.getUntil(), totalCommits, truncated, aggregator.result());
 
         logger.info("success on get contributions report for {}/{} ({} commits, {} pages, truncated={})",
                 request.getOwner(), request.getRepository(), totalCommits, pages, truncated);
@@ -490,40 +488,6 @@ public class GitHubProxy {
     private static String notFoundMessage(CommitRequestBody request) {
         return String.format("Repository %s/%s not found or not accessible with this token.",
                 request.getOwner(), request.getRepository());
-    }
-
-    private static String authorOf(JsonObject commit) {
-
-        JsonObject author = child(commit, "author");
-        String login = text(child(author, "user"), "login");
-
-        if (login != null && !login.isEmpty()) return login;
-
-        String name = text(author, "name");
-
-        return name != null && !name.isEmpty() ? name : "unknown";
-
-    }
-
-    static List<ContributorStatsResponseBody> consolidate(Map<String, int[]> totals) {
-
-        long grandTotal = 0;
-        for (int[] t : totals.values()) grandTotal += (long) t[1] + t[2];
-
-        List<ContributorStatsResponseBody> result = new ArrayList<>();
-
-        for (Map.Entry<String, int[]> entry : totals.entrySet()) {
-            int[] t = entry.getValue();
-            double percentage = grandTotal == 0 ? 0 : Math.round(((double) (t[1] + t[2]) / grandTotal) * 10000) / 100.0;
-            result.add(new ContributorStatsResponseBody(entry.getKey(), t[0], t[1], t[2], percentage));
-        }
-
-        result.sort(Comparator
-                .comparingInt((ContributorStatsResponseBody s) -> s.getTotalAdditions() + s.getTotalDeletions()).reversed()
-                .thenComparing(ContributorStatsResponseBody::getAuthor));
-
-        return result;
-
     }
 
     static int maxCommits() {

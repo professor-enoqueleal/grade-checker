@@ -179,8 +179,10 @@
         </div>
 
         <c:if test="${hasMessage == true or not empty message}">
-            <div class="alert alert-danger alert-dismissible fade show small" role="alert">
-                <i class="bi bi-exclamation-circle me-1"></i>
+            <%-- messageType: success | danger (default) - openspec capability sign-out --%>
+            <c:set var="alertType" value="${messageType == 'success' ? 'success' : 'danger'}"/>
+            <div class="alert alert-${alertType} alert-dismissible fade show small" role="alert">
+                <i class="bi ${alertType == 'success' ? 'bi-check-circle' : 'bi-exclamation-circle'} me-1"></i>
                 <c:out value="${message}"/>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
@@ -190,7 +192,7 @@
             <div class="card-body p-4">
 
                 <a class="btn btn-github btn-lg w-100 d-flex align-items-center justify-content-center gap-2 fs-6 py-2"
-                   href="https://github.com/login/oauth/authorize?client_id=Iv1.51b5bb131e5cd47a">
+                   href="/login/github">
                     <svg class="bi" width="20" height="20" aria-hidden="true"><use href="#github"></use></svg>
                     Continue with GitHub
                 </a>
@@ -201,18 +203,19 @@
                         type="button"
                         data-bs-toggle="collapse"
                         data-bs-target="#token-form"
-                        aria-expanded="false"
+                        aria-expanded="${tokenFormOpen ? 'true' : 'false'}"
                         aria-controls="token-form">
                     <i class="bi bi-key"></i>
                     Sign in with a personal access token
                     <i class="bi bi-chevron-down small"></i>
                 </button>
 
-                <div class="collapse" id="token-form">
+                <%-- tokenFormOpen: reopen the token form after an invalid submission (openspec capability token-sign-in) --%>
+                <div class="collapse ${tokenFormOpen ? 'show' : ''}" id="token-form">
                     <form action="/login" method="post" class="pt-3">
                         <label for="access-token" class="form-label small fw-semibold">Personal access token</label>
                         <input type="password" name="access-token" class="form-control" id="access-token"
-                               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" required>
+                               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" required ${tokenFormOpen ? 'autofocus' : ''}>
                         <div class="form-text">
                             Generate one in
                             <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">GitHub settings</a>.

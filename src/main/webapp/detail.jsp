@@ -301,6 +301,25 @@
             return $("<td>").text(text);
         }
 
+        // author name + "No GitHub account" badge for commits not linked to a login (openspec change identidades-autores)
+        function authorCell(stat) {
+            const td = $("<td>").append($("<span>").addClass("author-name").text(stat.author));
+            const identities = (stat.gitIdentities || []).join(", ");
+            if (stat.linked === false) {
+                $("<span>").addClass("badge text-bg-warning fw-normal ms-2 no-account-badge")
+                    .text("No GitHub account")
+                    .attr("title", "Commits not linked to a GitHub account: " + identities)
+                    .appendTo(td);
+            } else if (identities) {
+                // unlinked commits added to this login (same e-mail or git name equal to the login)
+                $("<span>").addClass("badge text-bg-secondary fw-normal ms-2 includes-unlinked-badge")
+                    .text("Includes unlinked commits")
+                    .attr("title", "Also counted here (commits not linked to the account): " + identities)
+                    .appendTo(td);
+            }
+            return td;
+        }
+
         function fillTable(stats) {
             const tbody = $("#contributions-tbody");
 
@@ -310,7 +329,7 @@
             stats.forEach(function (stat) {
                 seen.add(stat.author);
                 $("<tr>").attr("data-login", stat.author)
-                    .append(cell(stat.author))
+                    .append(authorCell(stat))
                     .append(cell(stat.commits))
                     .append(cell(stat.totalAdditions))
                     .append(cell(stat.totalDeletions))

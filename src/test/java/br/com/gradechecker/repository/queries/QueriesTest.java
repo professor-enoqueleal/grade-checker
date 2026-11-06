@@ -72,6 +72,23 @@ public class QueriesTest {
     }
 
     @Test
+    public void repositoriesUseOnlySqlQueriesConstants() throws Exception {
+        List<String> offenders = new ArrayList<>();
+
+        try (Stream<Path> files = Files.walk(Path.of("src/main/java/br/com/gradechecker/repository"))) {
+            for (Path p : files.filter(f -> f.toString().endsWith(".java")).collect(Collectors.toList())) {
+                String name = p.getFileName().toString();
+                if (name.equals("SqlQueries.java") || p.toString().contains("/queries/")) continue;
+                if (Files.readString(p).contains("Queries.get(")) offenders.add(name);
+            }
+        }
+
+        assertTrue("Repositories must use SqlQueries constants, not Queries.get: " + offenders, offenders.isEmpty());
+        assertFalse("SqlQueries is the single access point",
+                Files.exists(Path.of("src/main/java/br/com/gradechecker/repository/SqlQueriesForMembers.java")));
+    }
+
+    @Test
     public void repositoriesHaveNoSqlLiterals() throws Exception {
         Pattern sqlLiteral = Pattern.compile("\"\\s*(SELECT|INSERT|UPDATE|DELETE|MERGE)\\s", Pattern.CASE_INSENSITIVE);
         List<String> offenders;

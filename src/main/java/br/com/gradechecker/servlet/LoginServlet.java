@@ -8,8 +8,11 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
+/** Login page (GET) and sign in with a personal access token (POST) - openspec capability token-sign-in. */
 @WebServlet("/login")
 public class LoginServlet extends HttpServlet {
+
+    static final String MISSING_TOKEN = "Please enter a personal access token.";
 
     @Override
     protected void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
@@ -19,18 +22,27 @@ public class LoginServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
-        final String accessToken = httpServletRequest.getParameter("access-token");
+        final String parameter = request.getParameter("access-token");
+        final String accessToken = parameter == null ? "" : parameter.trim();
 
-        if (accessToken.isBlank()) {
-
-            throw new RuntimeException("Missing Access Token");
+        if (accessToken.isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute("message", MISSING_TOKEN);
+            request.setAttribute("tokenFormOpen", true); // show the token form again, focused
+            request.getRequestDispatcher("/authentication.jsp").forward(request, response);
+            return;
         }
 
-        httpServletRequest.getSession().setAttribute("accessToken", accessToken);
+        // session fixation protection, same as the GitHub sign-in: renew an existing session id,
+        // or start a new session (changeSessionId() throws when there is no session yet)
+        if (request.getSession(false) != null) {
+            request.changeSessionId();
+        }
+        request.getSession(true).setAttribute("accessToken", accessToken);
 
-        httpServletResponse.sendRedirect("/home");
+        response.sendRedirect("/home");
 
     }
 

@@ -98,6 +98,7 @@ public class AuthenticationFilterTest {
                 {"", "/"},                      // root mapped to welcome file
                 {"/", null},
                 {"/login", null},
+                {"/login/github", null},        // starts the GitHub OAuth flow
                 {"/logout", null},
                 {"/callback", null},
                 {"/authentication.jsp", null},

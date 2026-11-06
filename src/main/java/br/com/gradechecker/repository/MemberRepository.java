@@ -59,8 +59,7 @@ public class MemberRepository {
         try (Connection connection = ConnectionPoolConfig.getConnection()) {
 
             // check existence
-            String checkSql = "SELECT COUNT(*) AS CNT FROM MEMBERS WHERE GROUP_ID = ? AND GITHUB_USERNAME = ?";
-            try (PreparedStatement checkPs = connection.prepareStatement(checkSql)) {
+            try (PreparedStatement checkPs = connection.prepareStatement(SqlQueries.MEMBERS_COUNT_BY_GROUP_ID_AND_USERNAME)) {
                 checkPs.setLong(1, Integer.parseInt(member.getGroupId()));
                 checkPs.setString(2, member.getGitHubUserName());
                 try (ResultSet rs = checkPs.executeQuery()) {
@@ -256,10 +255,8 @@ public class MemberRepository {
 
         if (contributors == null || contributors.isEmpty()) return;
 
-        String updateSql = "UPDATE MEMBERS SET GITHUB_ID = ?, CONTRIBUTIONS = ? WHERE GROUP_ID = ? AND GITHUB_USERNAME = ? AND (GITHUB_ID IS NULL OR CREATED_MANUALLY = TRUE)";
-
         try (Connection connection = ConnectionPoolConfig.getConnection();
-             PreparedStatement ps = connection.prepareStatement(updateSql)) {
+             PreparedStatement ps = connection.prepareStatement(SqlQueries.MEMBERS_UPDATE_GITHUB_ID_AND_CONTRIBUTIONS)) {
 
             for (br.com.gradechecker.model.Contributor c : contributors) {
                 if (c.getLogin() == null) continue;

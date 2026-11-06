@@ -25,14 +25,23 @@ public class GitHubProxy {
 
     private final String githubApiVersion;
     private final String baseUrl;
+    private final br.com.gradechecker.config.GradingConfig grading;
+    private final java.time.ZoneId zone;
 
     public GitHubProxy() {
         this("https://api.github.com", "2022-11-28");
     }
 
     public GitHubProxy(String baseUrl, String apiVersion) {
+        this(baseUrl, apiVersion, br.com.gradechecker.config.GradingConfig.fromClasspath(),
+                br.com.gradechecker.config.Milestones.fromClasspath().getZone());
+    }
+
+    public GitHubProxy(String baseUrl, String apiVersion, br.com.gradechecker.config.GradingConfig grading, java.time.ZoneId zone) {
         this.baseUrl = baseUrl;
         this.githubApiVersion = apiVersion;
+        this.grading = grading;
+        this.zone = zone;
     }
 
     private String tokenHash(String token) {
@@ -253,7 +262,7 @@ public class GitHubProxy {
             + "  defaultBranchRef { target { ... on Commit {"
             + "   history(first: " + PAGE_SIZE + ", since: $since, until: $until, after: $cursor) {"
             + "    pageInfo { hasNextPage endCursor }"
-            + "    nodes { additions deletions parents { totalCount } author { name email user { login } } }"
+            + "    nodes { committedDate additions deletions changedFilesIfAvailable parents { totalCount } author { name email user { login } } }"
             + "   } } } }"
             + " }"
             + "}";
@@ -284,7 +293,7 @@ public class GitHubProxy {
             return cached;
         }
 
-        AuthorAggregator aggregator = new AuthorAggregator();
+        AuthorAggregator aggregator = new AuthorAggregator(grading, zone);
         int totalCommits = 0;
         int maxPages = (maxCommits + PAGE_SIZE - 1) / PAGE_SIZE;
         int pages = 0;
@@ -312,7 +321,8 @@ public class GitHubProxy {
 
                 JsonObject author = child(node, "author");
                 aggregator.add(text(child(author, "user"), "login"), text(author, "name"), text(author, "email"),
-                        integer(node, "additions"), integer(node, "deletions"));
+                        integer(node, "additions"), integer(node, "deletions"),
+                        text(node, "committedDate"), integer(node, "changedFilesIfAvailable"));
                 totalCommits++;
 
             }

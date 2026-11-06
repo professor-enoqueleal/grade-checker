@@ -112,6 +112,11 @@ public class PeriodResolver {
         }
     }
 
+    /** A milestone that has not ended yet: its grade is provisional. */
+    public boolean isInProgress(ResolvedPeriod period) {
+        return period.getKey().startsWith("m") && period.getUntil() != null && period.getUntil().isAfter(clock.instant());
+    }
+
     /** Buttons shown on the pages: milestones (enabled only when configured and already started) and All. */
     public List<PeriodOption> options(String selectedKey) {
 

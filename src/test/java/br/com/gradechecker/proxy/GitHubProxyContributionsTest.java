@@ -27,7 +27,8 @@ public class GitHubProxyContributionsTest {
 
     @Before
     public void setUp() {
-        proxy = new GitHubProxy("http://localhost:" + wireMockRule.port(), "2022-11-28");
+        proxy = new GitHubProxy("http://localhost:" + wireMockRule.port(), "2022-11-28",
+                br.com.gradechecker.config.GradingConfig.defaults(), java.time.ZoneId.of("America/Sao_Paulo"));
         CacheManager.rebuild(true, 60L, 100L);
         CacheManager.invalidateAll();
         System.clearProperty(GitHubProxy.MAX_COMMITS_PROPERTY);
@@ -55,6 +56,13 @@ public class GitHubProxyContributionsTest {
         return "{\"additions\":" + additions + ",\"deletions\":" + deletions
                 + ",\"parents\":{\"totalCount\":1}"
                 + ",\"author\":{\"name\":" + authorName + ",\"email\":" + authorEmail + ",\"user\":" + user + "}}";
+    }
+
+    private static String dated(String login, String name, String email, int additions, int deletions, String date, int files) {
+        String user = login == null ? "null" : "{\"login\":\"" + login + "\"}";
+        return "{\"committedDate\":\"" + date + "\",\"additions\":" + additions + ",\"deletions\":" + deletions
+                + ",\"changedFilesIfAvailable\":" + files + ",\"parents\":{\"totalCount\":1}"
+                + ",\"author\":{\"name\":\"" + name + "\",\"email\":\"" + email + "\",\"user\":" + user + "}}";
     }
 
     private static String page(boolean hasNextPage, String endCursor, String... commits) {
@@ -266,6 +274,40 @@ public class GitHubProxyContributionsTest {
         for (String invalid : new String[]{null, "", "=", "@b", "a@", "a@b@c", "nome sem arroba"}) {
             assertFalse(invalid, AuthorAggregator.isValidEmail(invalid));
         }
+    }
+
+    // ---------- grading indicators (openspec change nota-por-marco) ----------
+
+    @Test
+    public void queryRequestsDateAndChangedFiles() {
+        stubGraphQl(page(false, null));
+        proxy.getContributionsReport(request);
+        verify(postRequestedFor(urlEqualTo("/graphql"))
+                .withRequestBody(matchingJsonPath("$.query", containing("committedDate")))
+                .withRequestBody(matchingJsonPath("$.query", containing("changedFilesIfAvailable"))));
+    }
+
+    @Test
+    public void gradingIndicatorsPerAuthor() {
+        stubGraphQl(page(false, null,
+                dated("matheus", "Matheus", "m@x.com", 1000, 53, "2026-10-26T15:00:00Z", 8),    // capped at 400
+                dated("matheus", "Matheus", "m@x.com", 300, 298, "2026-10-29T15:00:00Z", 44),   // reorganization: 59.8
+                dated("matheus", "Matheus", "m@x.com", 10, 2, "2026-10-29T18:00:00Z", 1),       // not relevant (12 lines)
+                dated("ana", "Ana", "a@x.com", 50, 0, "2026-10-21T02:30:00Z", 2),               // 20/10 23:30 in Sao Paulo
+                dated("ana", "Ana", "a@x.com", 30, 0, "2026-10-21T13:00:00Z", 2),               // 21/10 10:00 in Sao Paulo
+                dated(null, "ana", "invalid-email", 25, 0, "2026-10-22T13:00:00Z", 1)));        // rule 2b: counted for ana
+
+        List<ContributorStatsResponseBody> stats = proxy.getContributionsReport(request).getConsolidatedStats();
+
+        ContributorStatsResponseBody matheus = row(stats, "matheus");
+        assertEquals(400 + 59.8 + 12, matheus.getEffectiveLines(), 1e-9);
+        assertEquals(2, matheus.getActiveDays());
+        assertEquals(2, matheus.getRelevantCommits());
+
+        ContributorStatsResponseBody ana = row(stats, "ana");
+        assertEquals(105, ana.getEffectiveLines(), 1e-9);
+        assertEquals("2 days in Sao Paulo (1 in UTC) + 1 from the unlinked commit", 3, ana.getActiveDays());
+        assertEquals(3, ana.getRelevantCommits());
     }
 
     @Test

@@ -14,6 +14,7 @@ public final class SqlQueries {
     // MEMBERS
     public static final String MEMBERS_INSERT = Queries.get("member.insert");
     public static final String MEMBERS_COUNT_BY_GROUP_ID = Queries.get("member.countByGroupId");
+    public static final String MEMBERS_SELECT_USERNAMES_BY_GROUP_ID = Queries.get("member.selectUsernamesByGroupId");
     public static final String MEMBERS_COUNT_BY_GROUP_ID_AND_USERNAME = Queries.get("member.countByGroupIdAndUsername");
     public static final String MEMBERS_UPDATE_GITHUB_ID_AND_CONTRIBUTIONS = Queries.get("member.updateGithubIdAndContributions");
     /** Contains %s: fill it ONLY with "?" placeholders. */

@@ -151,6 +151,105 @@ public class ContributorsStatServletTest {
         verifyNoInteractions(service);
     }
 
+    // ---------- grades (openspec change nota-por-marco) ----------
+
+    private static ContributorStatsResponseBody stat(String author, boolean linked, double effectiveLines, int days, int relevant, int commits, int lines) {
+        ContributorStatsResponseBody s = new ContributorStatsResponseBody(author, commits, lines, 0, 0, linked, java.util.Collections.emptyList());
+        s.setGradingIndicators(effectiveLines, days, relevant);
+        return s;
+    }
+
+    private ContributorsStatServlet gradingServlet(Instant now, List<String> members) {
+        Properties semester = new Properties();
+        semester.setProperty("milestone.1.start", "2026-08-13");
+        semester.setProperty("milestone.1.end", "2026-09-17");
+        semester.setProperty("milestone.2.start", "2026-09-18");
+        semester.setProperty("milestone.2.end", "2026-10-29");
+        semester.setProperty("milestone.3.start", "2026-10-30");
+        semester.setProperty("milestone.3.end", "2026-11-19");
+        PeriodResolver resolver = new PeriodResolver(Milestones.of(semester), Clock.fixed(now, ZoneOffset.UTC));
+        return new ContributorsStatServlet(service, resolver, groupId -> members, br.com.gradechecker.config.GradingConfig.defaults());
+    }
+
+    private void groupParams(String period) {
+        when(request.getParameter("owner")).thenReturn("LucasMoura-dev777");
+        when(request.getParameter("repo")).thenReturn("cannamed");
+        when(request.getParameter("groupId")).thenReturn("6");
+        when(request.getParameter("period")).thenReturn(period);
+    }
+
+    private static com.google.gson.JsonObject row(JsonObject json, String author) {
+        for (com.google.gson.JsonElement e : json.getAsJsonObject("stats").getAsJsonArray("consolidatedStats")) {
+            if (e.getAsJsonObject().get("author").getAsString().equals(author)) return e.getAsJsonObject();
+        }
+        throw new AssertionError("no row " + author);
+    }
+
+    @Test
+    public void milestoneGradesForGroup6() throws Exception {
+        groupParams("m2");
+        when(service.getContributionsReport(any())).thenReturn(new ContributionsReport("s", "u", 29, false, List.of(
+                stat("matheusmbn070906", true, 1546, 7, 6, 9, 2524),
+                stat("Pedroasmfodsj", true, 894, 8, 6, 8, 1057),
+                stat("thiagofp77", true, 1294, 4, 6, 7, 1580),
+                stat("LucasMoura-dev777", true, 878, 5, 4, 5, 878),
+                stat("SOMEONE ELSE", false, 10, 1, 0, 2, 10))));
+
+        gradingServlet(Instant.parse("2026-11-06T12:00:00Z"),
+                List.of("matheusmbn070906", "Pedroasmfodsj", "thiagofp77", "LucasMoura-dev777", "absent-student")).doGet(request, response);
+
+        JsonObject json = json();
+        JsonObject grading = json.getAsJsonObject("grading");
+        assertEquals(0.2, grading.get("fairShare").getAsDouble(), 1e-9);   // 5 students
+        assertEquals(5, grading.get("students").getAsInt());
+        assertEquals(2, grading.get("excludedCommits").getAsInt());
+        assertFalse(grading.get("provisional").getAsBoolean());            // M2 ended on 29/10
+
+        assertEquals(0.00, row(json, "absent-student").get("grade").getAsDouble(), 0);  // student without commits appears
+        assertTrue(row(json, "SOMEONE ELSE").get("grade").isJsonNull());
+        assertTrue(row(json, "thiagofp77").getAsJsonObject("gradeDetails").has("indexShare"));
+        double g = row(json, "LucasMoura-dev777").get("grade").getAsDouble();
+        assertTrue(g > 0 && g <= 3);
+    }
+
+    @Test
+    public void milestoneInProgressIsProvisional() throws Exception {
+        groupParams("m3");
+        when(service.getContributionsReport(any())).thenReturn(new ContributionsReport("s", "u", 1, false, List.of(stat("a", true, 10, 1, 1, 1, 10))));
+
+        gradingServlet(Instant.parse("2026-11-06T12:00:00Z"), List.of("a")).doGet(request, response);
+
+        assertTrue(json().getAsJsonObject("grading").get("provisional").getAsBoolean());
+    }
+
+    @Test
+    public void allPeriodHasMilestoneGradesAndTotal() throws Exception {
+        groupParams("all");
+        when(service.getContributionsReport(any())).thenReturn(new ContributionsReport("s", "u", 2, false, List.of(
+                stat("a", true, 100, 3, 2, 2, 100), stat("b", true, 100, 3, 2, 2, 100))));
+
+        // 2026-09-01: M1 in progress, M2 and M3 not started
+        gradingServlet(Instant.parse("2026-09-01T12:00:00Z"), List.of("a", "b")).doGet(request, response);
+
+        JsonObject json = json();
+        JsonObject a = row(json, "a");
+        assertEquals(3.0, a.getAsJsonObject("milestoneGrades").get("m1").getAsDouble(), 0);
+        assertTrue(a.getAsJsonObject("milestoneGrades").get("m2").isJsonNull());
+        assertEquals(3.0, a.get("total").getAsDouble(), 0);
+        assertEquals("m1", json.getAsJsonObject("grading").getAsJsonArray("provisionalMilestones").get(0).getAsString());
+        verify(service, times(2)).getContributionsReport(any()); // all + m1 (m2/m3 not started)
+    }
+
+    @Test
+    public void customPeriodAndMissingGroupHaveNoGrades() throws Exception {
+        groupParams("custom");
+        when(service.getContributionsReport(any())).thenReturn(new ContributionsReport("s", "u", 1, false, List.of(stat("a", true, 10, 1, 1, 1, 10))));
+
+        gradingServlet(Instant.parse("2026-11-06T12:00:00Z"), List.of("a")).doGet(request, response);
+
+        assertFalse(json().has("grading"));
+    }
+
     @Test
     public void gitHubErrorIsTranslated() throws Exception {
         when(request.getParameter("owner")).thenReturn("octocat");

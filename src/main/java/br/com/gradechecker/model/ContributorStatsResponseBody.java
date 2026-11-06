@@ -30,6 +30,11 @@ public class ContributorStatsResponseBody {
     @SerializedName("gitIdentities")
     private List<String> gitIdentities;
 
+    // grading indicators (openspec capability milestone-grading); transient: exposed through gradeDetails only
+    private transient double effectiveLines;
+    private transient int activeDays;
+    private transient int relevantCommits;
+
     public ContributorStatsResponseBody(String author, int totalAdditions, int totalDeletions) {
         this(author, 0, totalAdditions, totalDeletions, 0);
     }
@@ -75,6 +80,24 @@ public class ContributorStatsResponseBody {
 
     public List<String> getGitIdentities() {
         return gitIdentities;
+    }
+
+    public void setGradingIndicators(double effectiveLines, int activeDays, int relevantCommits) {
+        this.effectiveLines = effectiveLines;
+        this.activeDays = activeDays;
+        this.relevantCommits = relevantCommits;
+    }
+
+    public double getEffectiveLines() {
+        return effectiveLines;
+    }
+
+    public int getActiveDays() {
+        return activeDays;
+    }
+
+    public int getRelevantCommits() {
+        return relevantCommits;
     }
 
     public void setAuthor(String author) {

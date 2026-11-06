@@ -202,6 +202,30 @@ public class MemberRepository {
 
     }
 
+    /** GitHub usernames of the members of a group: the students of the milestone grade. */
+    public List<String> findUsernamesByGroupId(long groupId) {
+
+        List<String> usernames = new ArrayList<>();
+
+        try (Connection connection = ConnectionPoolConfig.getConnection();
+             PreparedStatement ps = connection.prepareStatement(SqlQueries.MEMBERS_SELECT_USERNAMES_BY_GROUP_ID)) {
+
+            ps.setLong(1, groupId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String username = rs.getString("GITHUB_USERNAME");
+                    if (username != null && !username.trim().isEmpty()) usernames.add(username.trim());
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Fail on select members of group {}: {}", groupId, e.getMessage());
+        }
+
+        return usernames;
+    }
+
     public int findById(Long id) {
 
         int totalOfMembers = 0;

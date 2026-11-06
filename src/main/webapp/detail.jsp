@@ -189,6 +189,7 @@
         <h5 id="dashboard-title" class="d-none"></h5>
         <p id="dashboard-summary" class="text-body-secondary small d-none"></p>
         <div id="dashboard-alert" class="alert d-none mb-4" role="alert"></div>
+        <div id="grading-alert" class="alert alert-info d-none mb-4 small" role="status"></div>
     </div>
 
     <div class="mx-auto" id="loader"></div>
@@ -207,6 +208,7 @@
                     <th scope="col">Additions</th>
                     <th scope="col">Deletions</th>
                     <th scope="col">Percentage</th>
+                    <%-- grade columns (Grade / M1 M2 M3 Total) are added by the dashboard script per period --%>
                 </tr>
             </thead>
             <tbody id="contributions-tbody">
@@ -320,7 +322,60 @@
             return td;
         }
 
-        function fillTable(stats) {
+        // ---------------- milestone grades (openspec capability milestone-grading) ----------------
+
+        function formatGrade(value) {
+            return value === null || value === undefined ? "—" : Number(value).toFixed(2);
+        }
+
+        // grade columns for the selected period: milestone → Grade (0–3); all → M1, M2, M3, Total (0–9); custom → none
+        function gradeColumns(data) {
+            const grading = data.grading;
+            if (!grading) return [];
+            if (data.period && data.period.startsWith("m")) {
+                return [{ header: "Grade (0–3)" + (grading.provisional ? " (in progress)" : ""), value: function (stat) {
+                    return { text: formatGrade(stat.grade) + (stat.grade !== null && stat.grade !== undefined && grading.provisional ? " (in progress)" : ""),
+                             title: gradeTitle(stat.gradeDetails) };
+                } }];
+            }
+            if (data.period === "all") {
+                const provisional = grading.provisionalMilestones || [];
+                const columns = ["m1", "m2", "m3"].map(function (key, i) {
+                    return { header: "M" + (i + 1) + (provisional.indexOf(key) >= 0 ? " (in progress)" : ""), value: function (stat) {
+                        return { text: formatGrade(stat.milestoneGrades ? stat.milestoneGrades[key] : null) };
+                    } };
+                });
+                columns.push({ header: "Total (0–9)", value: function (stat) { return { text: formatGrade(stat.total) }; } });
+                return columns;
+            }
+            return [];
+        }
+
+        function gradeTitle(d) {
+            if (!d) return "Not a student of this group: no grade";
+            return "Effective lines: " + d.effectiveLines + " · Active days: " + d.activeDays + " · Relevant commits: " + d.relevantCommits
+                + " · Index share: " + (d.indexShare * 100).toFixed(1) + "% · Ratio to fair share: " + d.ratio;
+        }
+
+        function renderGradeHeaders(columns) {
+            const headerRow = $(".contributions-table thead tr");
+            headerRow.find("th.grade-col").remove();
+            columns.forEach(function (c) { $("<th>").attr("scope", "col").addClass("grade-col").text(c.header).appendTo(headerRow); });
+        }
+
+        function showGradingNotice(data) {
+            const notice = $("#grading-alert").addClass("d-none").text("");
+            const g = data.grading;
+            if (g && g.excludedCommits > 0) {
+                notice.text(g.excludedCommits + " commits not counted in grades (authors not linked to group members).").removeClass("d-none");
+            } else if (g && g.students === 0) {
+                notice.text("No students registered in this group: grades are not available.").removeClass("d-none");
+            }
+        }
+
+        function fillTable(stats, columns) {
+            columns = columns || [];
+            renderGradeHeaders(columns);
             const tbody = $("#contributions-tbody");
 
             const seen = new Set();
@@ -334,6 +389,12 @@
                     .append(cell(stat.totalAdditions))
                     .append(cell(stat.totalDeletions))
                     .append(cell(Number(stat.percentage).toFixed(2) + "%"))
+                    .append(columns.map(function (c) {
+                        const v = c.value(stat);
+                        const td = $("<td>").addClass("grade-cell fw-semibold").text(v.text);
+                        if (v.title) td.attr("title", v.title);
+                        return td;
+                    }))
                     .appendTo(tbody);
             });
 
@@ -341,6 +402,7 @@
             groupContributors.filter(function (login) { return !seen.has(login); }).forEach(function (login) {
                 $("<tr>").attr("data-login", login).addClass("text-body-secondary")
                     .append(cell(login)).append(cell(0)).append(cell(0)).append(cell(0)).append(cell("0.00%"))
+                    .append(columns.map(function () { return $("<td>").addClass("grade-cell").text("—"); }))
                     .appendTo(tbody);
             });
 
@@ -429,7 +491,8 @@
                     .text(data.totalCommits + " commits · " + data.periodText + " (merge commits excluded)")
                     .removeClass("d-none");
 
-                fillTable(stats);
+                fillTable(stats, gradeColumns(data));
+                showGradingNotice(data);
                 drawChart(stats);
 
                 if (data.truncated) {

@@ -1,7 +1,12 @@
 package br.com.gradechecker.proxy;
 
+import br.com.gradechecker.config.GradingConfig;
 import br.com.gradechecker.model.ContributorStatsResponseBody;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 /**
@@ -25,6 +30,10 @@ final class AuthorAggregator {
         int commits;
         int additions;
         int deletions;
+        // grading indicators (openspec capability milestone-grading)
+        double effectiveLines;
+        final Set<LocalDate> activeDays = new HashSet<>();
+        int relevantCommits;
 
         Author(String display, boolean linked) {
             this.display = display;
@@ -43,13 +52,25 @@ final class AuthorAggregator {
         final String email;
         final int additions;
         final int deletions;
+        final LocalDate day;
+        final int changedFiles;
 
-        Unlinked(String name, String email, int additions, int deletions) {
+        Unlinked(String name, String email, int additions, int deletions, LocalDate day, int changedFiles) {
             this.name = name;
             this.email = email;
             this.additions = additions;
             this.deletions = deletions;
+            this.day = day;
+            this.changedFiles = changedFiles;
         }
+    }
+
+    private final GradingConfig grading;
+    private final ZoneId zone;
+
+    AuthorAggregator(GradingConfig grading, ZoneId zone) {
+        this.grading = grading;
+        this.zone = zone;
     }
 
     private final Map<String, Author> authors = new LinkedHashMap<>();
@@ -57,11 +78,20 @@ final class AuthorAggregator {
     private final Map<String, String> loginsByNormalizedName = new HashMap<>();
     private final List<Unlinked> unlinked = new ArrayList<>();
 
-    /** Phase 1: called for every non-merge commit, in any order. */
+    /** Phase 1 (without date/files: no grading indicators besides lines and relevance). */
     void add(String login, String name, String email, int additions, int deletions) {
+        add(login, name, email, additions, deletions, null, 0);
+    }
+
+    /** Phase 1: called for every non-merge commit, in any order. */
+    void add(String login, String name, String email, int additions, int deletions, String committedDate, int changedFiles) {
+
+        LocalDate day = dayOf(committedDate);
 
         if (!isBlank(login)) {
-            authors.computeIfAbsent("login:" + login, k -> new Author(login, true)).add(additions, deletions);
+            Author linkedAuthor = authors.computeIfAbsent("login:" + login, k -> new Author(login, true));
+            linkedAuthor.add(additions, deletions);
+            indicators(linkedAuthor, additions, deletions, day, changedFiles);
             loginsByNormalizedName.putIfAbsent(normalize(login), login);
             if (isValidEmail(email)) {
                 loginsByEmail.computeIfAbsent(normalize(email), k -> new LinkedHashSet<>()).add(login);
@@ -70,7 +100,7 @@ final class AuthorAggregator {
         }
 
         // resolved only at the end: the linked commit with the same e-mail may come on a later page
-        unlinked.add(new Unlinked(name, email, additions, deletions));
+        unlinked.add(new Unlinked(name, email, additions, deletions, day, changedFiles));
     }
 
     /** Phase 2: resolves unlinked commits and returns the report rows (percentage + ordering). */
@@ -99,6 +129,7 @@ final class AuthorAggregator {
             }
 
             author.add(commit.additions, commit.deletions);
+            indicators(author, commit.additions, commit.deletions, commit.day, commit.changedFiles);
 
             // every unlinked commit is listed: on unlinked rows, and on linked rows it was added to (auditable)
             author.identities.add(identity(commit.name, commit.email));
@@ -113,8 +144,10 @@ final class AuthorAggregator {
 
         for (Author a : authors.values()) {
             double percentage = grandTotal == 0 ? 0 : Math.round(((double) (a.additions + a.deletions) / grandTotal) * 10000) / 100.0;
-            rows.add(new ContributorStatsResponseBody(a.display, a.commits, a.additions, a.deletions, percentage,
-                    a.linked, new ArrayList<>(a.identities)));
+            ContributorStatsResponseBody row = new ContributorStatsResponseBody(a.display, a.commits, a.additions, a.deletions, percentage,
+                    a.linked, new ArrayList<>(a.identities));
+            row.setGradingIndicators(a.effectiveLines, a.activeDays.size(), a.relevantCommits);
+            rows.add(row);
         }
 
         rows.sort(Comparator
@@ -122,6 +155,22 @@ final class AuthorAggregator {
                 .thenComparing(ContributorStatsResponseBody::getAuthor));
 
         return rows;
+    }
+
+    private void indicators(Author author, int additions, int deletions, LocalDate day, int changedFiles) {
+        author.effectiveLines += grading.effectiveLines(additions, deletions, changedFiles);
+        if (grading.isRelevantCommit(additions, deletions)) author.relevantCommits++;
+        if (day != null) author.activeDays.add(day);
+    }
+
+    /** Commit date in the milestones time zone (a commit at 23:30 in Sao Paulo is still that day). */
+    private LocalDate dayOf(String isoDate) {
+        if (isBlank(isoDate)) return null;
+        try {
+            return OffsetDateTime.parse(isoDate.trim()).atZoneSameInstant(zone).toLocalDate();
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     /** e.g. "=" or "" are not e-mails: text before and after a single "@". */

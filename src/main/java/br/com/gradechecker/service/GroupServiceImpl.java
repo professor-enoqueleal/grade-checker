@@ -1,19 +1,26 @@
 package br.com.gradechecker.service;
 
+import br.com.gradechecker.model.Contributor;
 import br.com.gradechecker.model.Group;
 import br.com.gradechecker.model.Member;
-import br.com.gradechecker.model.Contributor;
+import br.com.gradechecker.proxy.GitHubApiException;
 import br.com.gradechecker.proxy.GitHubProxy;
-import br.com.gradechecker.repository.ContributorsRepository;
 import br.com.gradechecker.repository.GroupRepository;
 import br.com.gradechecker.repository.MemberRepository;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * Group detail (openspec capability group-members): read only.
+ * Contributors come from GitHub (cached in memory); members come from the database and are only changed by an
+ * administrator. Nothing is written here.
+ */
 public class GroupServiceImpl implements GroupService {
 
-    private final ContributorsRepository contributorsRepository;
+    private final Logger logger = LogManager.getLogger(this.getClass());
 
     private final GitHubProxy gitHubProxy;
 
@@ -22,12 +29,11 @@ public class GroupServiceImpl implements GroupService {
     private final MemberRepository memberRepository;
 
     public GroupServiceImpl() {
-        this(new ContributorsRepository(), new GroupRepository(), new MemberRepository(), new GitHubProxy());
+        this(new GroupRepository(), new MemberRepository(), new GitHubProxy());
     }
 
     // injectable constructor for tests
-    public GroupServiceImpl(ContributorsRepository contributorsRepository, GroupRepository groupRepository, MemberRepository memberRepository, GitHubProxy gitHubProxy) {
-        this.contributorsRepository = contributorsRepository;
+    public GroupServiceImpl(GroupRepository groupRepository, MemberRepository memberRepository, GitHubProxy gitHubProxy) {
         this.groupRepository = groupRepository;
         this.memberRepository = memberRepository;
         this.gitHubProxy = gitHubProxy;
@@ -36,36 +42,25 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public Group getGroup(Long groupId, String accessToken) {
 
-        var contributors = contributorsRepository.getByGroupId(groupId);
+        Group stored = groupRepository.getGroupDetail(groupId);
 
-        Group group = groupRepository.getGroupDetail(groupId);
-        int totalOfMembers = memberRepository.findById(groupId);
+        // a copy: the stored group is a cached object shared by every user
+        Group group = new Group(stored.getId(), stored.getName(), stored.getRepositoryUrl(), stored.getOwner(), stored.getRepository());
 
-        if (contributors.isEmpty()) {
+        List<Member> members = memberRepository.findByGroupId(groupId);
+        group.setMembers(members);
+        group.setTotalOfMembers(members.size());
 
+        List<Contributor> contributors;
+        try {
             contributors = gitHubProxy.getContributors(accessToken, group.getOwner(), group.getRepository());
-            contributorsRepository.create(contributors, groupId);
-
-            // convert contributors to members and persist in MEMBERS table (idempotent)
-            if (contributors != null && !contributors.isEmpty()) {
-                // sync existing manual members with contributors (fill GITHUB_ID and CONTRIBUTIONS)
-                memberRepository.syncMembersWithContributors(contributors, groupId);
-
-                List<Member> members = contributors.stream()
-                        .map(c -> new Member(c.getLogin(), c.getLogin(), String.valueOf(groupId), c.getId()))
-                        .collect(Collectors.toList());
-
-                memberRepository.createBulkIfNotExists(members, groupId);
-
-                // refresh totalOfMembers after insertion
-                totalOfMembers = memberRepository.findById(groupId);
-            }
-
+        } catch (GitHubApiException e) {
+            logger.warn("Contributors of group {} not available: {} ({})", groupId, e.getErrorCode(), e.getMessage());
+            contributors = null;
+            group.setContributorsError(e.getMessage());
         }
 
-        group.setContributors(contributors);
-        group.setTotalOfMembers(totalOfMembers);
-
+        group.setContributors(contributors == null ? Collections.emptyList() : contributors);
         return group;
 
     }

@@ -49,7 +49,9 @@ public class GroupRepositoryTest {
     }
 
     @Test
-    public void findAll_and_getGroupDetail_work() {
+    public void findAll_and_getGroupDetail_work() throws Exception {
+        br.com.gradechecker.cache.CacheManager.invalidateAll();
+        TestGroups.create("group-repository-test"); // db.sql may come without seed groups
         GroupRepository repo = new GroupRepository();
 
         List<Group> groups = repo.findAll();

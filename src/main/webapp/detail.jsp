@@ -89,7 +89,7 @@
             <div class="mb-2 row">
                 <label for="number-of-contributors" class="col-sm-4 col-form-label">Number of contributors:</label>
                 <div class="col-sm-8">
-                    <input type="text" readonly class="form-control-plaintext" id="number-of-contributors" value="<c:out value='${group.contributors.size()}'/>">
+                    <input type="text" readonly class="form-control-plaintext" id="number-of-contributors" value="<c:out value='${empty group.contributorsError ? group.contributors.size() : "—"}'/>">
                 </div>
             </div>
 
@@ -100,9 +100,11 @@
                 </div>
             </div>
 
-            <div class="row">
-                <a href="#" class="col-form-label" data-bs-toggle="modal" data-bs-target="#exampleModal">Add a new member</a>
-            </div>
+            <c:if test="${isAdmin}">
+                <div class="row">
+                    <a href="/group/members?id=<c:out value='${group.id}'/>" class="col-form-label" id="manage-members-link">Manage members</a>
+                </div>
+            </c:if>
 
         </div>
 
@@ -110,40 +112,47 @@
 
     <hr>
 
-    <c:if test="${param.error == 'github_user_not_found'}">
-        <div class="alert alert-danger" role="alert">
-            O usuário informado não existe no GitHub; cadastro não realizado.
-        </div>
-    </c:if>
-    <c:if test="${param.error == 'member_already_exists'}">
-        <div class="alert alert-warning" role="alert">
-            O membro já está cadastrado para este grupo; nenhum novo cadastro foi efetuado.
-        </div>
+    <%-- contributors (GitHub) and members without commits (openspec capability group-members) --%>
+    <h4>Contributors and members</h4>
+
+    <c:if test="${not empty group.contributorsError}">
+        <div class="alert alert-warning" role="alert" id="contributors-error"><c:out value="${group.contributorsError}"/></div>
     </c:if>
 
-    <h4>Contributors</h4>
+    <div id="members-alert" class="alert alert-danger d-none small" role="alert"></div>
+
+    <c:if test="${empty cards}">
+        <p class="text-body-secondary" id="no-cards">No contributors or members yet.</p>
+    </c:if>
 
     <!-- 1 column < 576px, 2 >= 576px, 3 >= 768px, 4 >= 992px: narrower cards keep the square avatar small -->
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mb-4">
 
-        <c:forEach var="contributor" items="${group.contributors}">
+        <c:forEach var="card" items="${cards}">
             <div class="col">
-                <div class="card h-100 rounded-3 shadow-sm">
-                    <img src="<c:out value='${contributor.avatarUrl}'/>" class="card-img-top avatar-card-img"
-                         alt="Avatar of <c:out value='${contributor.login}'/>">
+                <div class="card h-100 rounded-3 shadow-sm" data-login="<c:out value='${card.login}'/>">
+                    <img src="<c:out value='${card.avatarUrl}'/>" class="card-img-top avatar-card-img"
+                         alt="Avatar of <c:out value='${card.login}'/>">
                     <div class="card-body">
-                        <h5 class="card-title text-break"><c:out value="${contributor.login}"/></h5>
-                        <p class="card-text">Contributions: <c:out value="${contributor.contributions}"/></p>
+                        <h5 class="card-title text-break"><c:out value="${card.login}"/></h5>
+                        <p class="card-text contributions-count">Contributions: <c:out value="${empty card.contributions ? '—' : card.contributions}"/></p>
+                        <c:if test="${card.member}"><span class="badge text-bg-success member-badge">Member</span></c:if>
                     </div>
-                    <div class="card-footer bg-transparent border-0 pb-3">
-                        <a href="<c:out value='${contributor.htmlUrl}'/>" target="_blank" rel="noopener noreferrer" class="card-link">GitHub</a>
+                    <div class="card-footer bg-transparent border-0 pb-3 small">
+                        <a href="<c:out value='${card.htmlUrl}'/>" target="_blank" rel="noopener noreferrer" class="card-link">GitHub</a>
                         <c:url var="contributionsUrl" value="/contributions-detail">
-                            <c:param name="author" value="${contributor.login}"/>
+                            <c:param name="author" value="${card.login}"/>
                             <c:param name="repo" value="${group.repository}"/>
                             <c:param name="owner" value="${group.owner}"/>
                             <c:param name="groupId" value="${group.id}"/>
                         </c:url>
-                        <a href="<c:out value='${contributionsUrl}'/>" class="card-link">Contributions details</a>
+                        <a href="<c:out value='${contributionsUrl}'/>" class="card-link">Details</a>
+                        <c:if test="${isAdmin}">
+                            <c:choose>
+                                <c:when test="${card.member}"><a href="#" class="card-link unmark-member-link" data-login="<c:out value='${card.login}'/>" title="Unmark as member" aria-label="Unmark <c:out value='${card.login}'/> as member">Unmark</a></c:when>
+                                <c:otherwise><a href="#" class="card-link mark-member-link" data-login="<c:out value='${card.login}'/>" title="Mark as member" aria-label="Mark <c:out value='${card.login}'/> as member">Mark</a></c:otherwise>
+                            </c:choose>
+                        </c:if>
                     </div>
                 </div>
             </div>
@@ -213,9 +222,10 @@
                 </tr>
             </thead>
             <tbody id="contributions-tbody">
-                <c:forEach var="contributor" items="${group.contributors}">
-                    <tr data-login="<c:out value='${contributor.login}'/>">
-                        <td><c:out value="${contributor.login}"/></td>
+                <%-- members without commits in the period appear with zeros (openspec capability group-members) --%>
+                <c:forEach var="member" items="${group.members}">
+                    <tr data-login="<c:out value='${member.gitHubUserName}'/>">
+                        <td><c:out value="${member.gitHubUserName}"/></td>
                         <td>&mdash;</td>
                         <td>&mdash;</td>
                         <td>&mdash;</td>
@@ -246,47 +256,6 @@
 
 </main>
 
-<!-- init modal -->
-
-<div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-
-    <form action="/member/create" method="post">
-
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Add group member</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                <!-- init modal body -->
-
-                    <div class="row">
-
-                        <input type="hidden" class="form-control" id="group-id" name="group-id" value="${param.id}">
-
-                        <div class="mb-3">
-                            <label for="user-name" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="user-name" name="user-name" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="github-username" class="form-label">Github Username</label>
-                            <input type="text" class="form-control" id="github-username" name="github-username" required>
-                        </div>
-
-                    </div>
-
-                <!-- end modal body -->
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Save</button>
-                </div>
-            </div>
-        </div>
-    </form>
-</div>
-<!-- end modal -->
 
 <%-- manual association of an identity without account (openspec capability identity-aliases): administrators only --%>
 <c:if test="${isAdmin}">
@@ -426,6 +395,34 @@
                 })
                 .then(function () { loadData(); })
                 .catch(function (error) { showAlert("danger", errorMessage(error, "Could not unlink the identity. Please try again.")); });
+        }
+
+        // ---------------- members (openspec capability group-members): administrators only ----------------
+
+        function groupId() {
+            return $("#content").data("group-id");
+        }
+
+        function showMembersError(text) {
+            $("#members-alert").text(text).removeClass("d-none");
+            document.getElementById("members-alert").scrollIntoView({ block: "center" });
+        }
+
+        // "Mark" (as member) on a contributor card: the login becomes a member (name = login)
+        function markMember(link) {
+            const form = new URLSearchParams({ groupId: groupId(), login: link.attr("data-login"), manual: "false" });
+            axios.post("/group-members", form, ajaxHeaders)
+                .then(function () { window.location.reload(); })
+                .catch(function (error) { showMembersError(errorMessage(error, "Could not add the member. Please try again.")); });
+        }
+
+        // "Unmark" (as member) on a card (the full management is in /group/members)
+        function removeMember(link) {
+            const login = link.attr("data-login");
+            if (!window.confirm("Remove " + login + " from the members of this group? Their commits will no longer receive a grade.")) return;
+            axios.delete("/group-members", { params: { groupId: groupId(), login: login }, headers: ajaxHeaders.headers })
+                .then(function () { window.location.reload(); })
+                .catch(function (error) { showMembersError(errorMessage(error, "Could not remove the member. Please try again.")); });
         }
 
         // ---------------- milestone grades (openspec capability milestone-grading) ----------------
@@ -629,6 +626,9 @@
                 .on("click", ".link-identity-button", function () { openLinkModal($(this)); })
                 .on("click", ".unlink-identity-button", function () { unlink($(this)); });
             $("#confirm-link-identity").on("click", confirmLink);
+            $(document)
+                .on("click", ".mark-member-link", function (e) { e.preventDefault(); markMember($(this)); })
+                .on("click", ".unmark-member-link", function (e) { e.preventDefault(); removeMember($(this)); });
 
             groupContributors = $("#contributions-tbody tr[data-login]").map(function () {
                 return $(this).attr("data-login");

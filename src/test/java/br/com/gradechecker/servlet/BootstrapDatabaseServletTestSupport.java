@@ -14,4 +14,9 @@ public final class BootstrapDatabaseServletTestSupport {
             throw new IllegalStateException("db.sql could not be loaded");
         }
     }
+
+    /** Runs db.sql again on the same database (a restart). */
+    public static boolean reload() {
+        return new BootstrapDatabaseServlet().loadDatabase(BootstrapDatabaseServlet.SCRIPT);
+    }
 }

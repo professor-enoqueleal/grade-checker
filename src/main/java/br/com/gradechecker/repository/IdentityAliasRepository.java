@@ -74,4 +74,22 @@ public class IdentityAliasRepository {
         }
     }
 
+    /** True when any identity of the group is linked to this login (ignoring case): the member cannot be removed. */
+    public boolean existsForLogin(long groupId, String login) {
+
+        try (Connection connection = ConnectionPoolConfig.getConnection();
+             PreparedStatement ps = connection.prepareStatement(SqlQueries.ALIASES_EXISTS_BY_LOGIN)) {
+
+            ps.setLong(1, groupId);
+            ps.setString(2, login == null ? "" : login.trim());
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt("CNT") > 0;
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Fail on select identity aliases of a login", e);
+        }
+    }
+
 }

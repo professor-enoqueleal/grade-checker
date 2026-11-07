@@ -55,6 +55,12 @@ public class GitHubProxy {
         }
     }
 
+    /**
+     * Contributors of the repository (accounts with commits on the default branch), up to 100
+     * (openspec capability group-members). Never stored in the database; cached only on success.
+     *
+     * @throws GitHubApiException when GitHub cannot be read (401, 403, 404, 429, 502)
+     */
     public List<Contributor> getContributors(String accessKey, String owner, String repo) {
 
         final String cacheKey = String.format("github.contributors::%s:%s:%s", owner, repo, tokenHash(accessKey));
@@ -65,35 +71,41 @@ public class GitHubProxy {
             return cached;
         }
 
-        String url = baseUrl + "/repos/{owner}/{repo}/contributors";
-
+        HttpResponse<String> response;
         try {
-
-            String bearerToken = String.format("Bearer %s", accessKey);
-
-            HttpResponse<List<Contributor>> responseEntity = Unirest.get(url)
+            response = Unirest.get(baseUrl + "/repos/{owner}/{repo}/contributors")
                     .header("Accept", "application/json")
-                    .header("Authorization", bearerToken)
+                    .header("Authorization", String.format("Bearer %s", accessKey))
                     .header("X-GitHub-Api-Version", githubApiVersion)
                     .routeParam("owner", owner)
                     .routeParam("repo", repo)
-                    .asObject(new GenericType<List<Contributor>>() {
-                    });
-
-            logger.info("success on get contributors information on github");
-
-            List<Contributor> body = responseEntity.getBody();
-            CacheManager.put(cacheKey, body);
-
-            return body;
-
+                    .queryString("per_page", 100)
+                    .asString();
         } catch (Exception e) {
-
-            logger.error("Error on retrieve contributors information on github. Cause: {}", e.getMessage());
-
-            throw new RuntimeException("Error on retrieve contributors information on github");
-
+            logger.error("Error on retrieve contributors of {}/{}: {}", owner, repo, e.getMessage());
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Could not connect to GitHub. Please try again.", e);
         }
+
+        if (response.getStatus() == 204) {          // repository without commits
+            List<Contributor> empty = java.util.Collections.emptyList();
+            CacheManager.put(cacheKey, empty);
+            return empty;
+        }
+        if (response.getStatus() != 200) {
+            throw httpError(response);
+        }
+
+        List<Contributor> body;
+        try {
+            Contributor[] parsed = GSON.fromJson(response.getBody(), Contributor[].class);
+            body = parsed == null ? java.util.Collections.emptyList() : java.util.Collections.unmodifiableList(java.util.Arrays.asList(parsed));
+        } catch (RuntimeException e) {
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Invalid response from GitHub.", e);
+        }
+
+        logger.info("success on get contributors information on github");
+        CacheManager.put(cacheKey, body);
+        return body;
 
     }
 
@@ -516,33 +528,36 @@ public class GitHubProxy {
      * Fetch a GitHub user by login. Returns a Contributor-like object (id, login, avatarUrl, htmlUrl)
      * or null if the user does not exist (404).
      */
-    public Contributor getUser(String username) {
+    /**
+     * GitHub user by login, read with the session token (no anonymous rate limit), or null when it does not exist.
+     *
+     * @throws GitHubApiException when GitHub cannot be read for another reason
+     */
+    public Contributor getUser(String username, String accessToken) {
 
         if (username == null || username.trim().isEmpty()) return null;
 
-        String url = baseUrl + "/users/{username}";
-
+        HttpResponse<String> response;
         try {
-
-            HttpResponse<Contributor> response = Unirest.get(url)
+            kong.unirest.GetRequest request = Unirest.get(baseUrl + "/users/{username}")
                     .header("Accept", "application/json")
-                    .routeParam("username", username)
-                    .asObject(Contributor.class);
-
-            int status = response.getStatus();
-
-            if (status == 200) {
-                return response.getBody();
-            } else if (status == 404) {
-                return null;
-            } else {
-                logger.warn("Unexpected status {} when fetching user {}", status, username);
-                return null;
-            }
-
+                    .header("X-GitHub-Api-Version", githubApiVersion)
+                    .routeParam("username", username.trim());
+            if (accessToken != null && !accessToken.isEmpty()) request = request.header("Authorization", "Bearer " + accessToken);
+            response = request.asString();
         } catch (Exception e) {
             logger.error("Error fetching user {} from GitHub: {}", username, e.getMessage());
-            return null;
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Could not connect to GitHub. Please try again.", e);
+        }
+
+        if (response.getStatus() == 404) return null;
+        if (response.getStatus() != 200) throw httpError(response);
+
+        try {
+            Contributor user = GSON.fromJson(response.getBody(), Contributor.class);
+            return user == null || user.getLogin() == null ? null : user;
+        } catch (RuntimeException e) {
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Invalid response from GitHub.", e);
         }
 
     }

@@ -54,6 +54,11 @@ public class JspStructureTest {
     }
 
     @Test
+    public void manageMembersPage() throws Exception {
+        assertWellFormed("group-members.jsp");
+    }
+
+    @Test
     public void homePage() throws Exception {
         assertWellFormed("home.jsp");
     }

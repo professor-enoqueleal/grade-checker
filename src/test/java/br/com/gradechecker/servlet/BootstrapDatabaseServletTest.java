@@ -28,8 +28,29 @@ public class BootstrapDatabaseServletTest {
              Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM GROUPS")) {
             assertTrue(rs.next());
-            assertTrue("seed groups from db.sql", rs.getInt(1) > 0);
+            // seed groups are optional (the script may come with only the schema)
+            if (hasActiveSeeds()) assertTrue("seed groups from db.sql", rs.getInt(1) > 0);
         }
+    }
+
+    @Test
+    public void schemaHasNoContributorsTable() throws Exception {
+        // openspec capability group-members: contributors come from GitHub, MEMBERS has no foreign key to them
+        String script = script().toUpperCase();
+        assertFalse(script.contains("CREATE TABLE IF NOT EXISTS CONTRIBUTORS"));
+        assertFalse(script.contains("REFERENCES CONTRIBUTORS"));
+    }
+
+    private static String script() throws Exception {
+        return new String(BootstrapDatabaseServlet.class.getResourceAsStream("/db.sql").readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static boolean hasActiveSeeds() throws Exception {
+        for (String line : script().split("\n")) {
+            if (line.trim().toUpperCase().startsWith("INSERT INTO GROUPS")) return true;
+        }
+        return false;
     }
 
     @Test

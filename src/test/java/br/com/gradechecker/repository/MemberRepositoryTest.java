@@ -1,76 +1,160 @@
 package br.com.gradechecker.repository;
 
+import br.com.gradechecker.cache.CacheManager;
 import br.com.gradechecker.config.ConnectionPoolConfig;
 import br.com.gradechecker.model.Member;
+import br.com.gradechecker.servlet.BootstrapDatabaseServletTestSupport;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
+/** openspec capability group-members: persistence of the members of a group. */
 public class MemberRepositoryTest {
 
+    private static long groupId;
+    private final MemberRepository repository = new MemberRepository();
+
     @BeforeClass
-    public static void setupDatabase() throws Exception {
-        // Use same in-memory DB as other tests
-        System.setProperty("DB_URL", "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1");
-        System.setProperty("DB_USER", "sa");
-        System.setProperty("DB_PASS", "");
+    public static void database() throws Exception {
+        BootstrapDatabaseServletTestSupport.loadSchema();
+        groupId = TestGroups.create("members-test");
+    }
 
-        // Run schema from resources/db.sql if not already present
-        try (Connection conn = ConnectionPoolConfig.getConnection();
-             Statement stmt = conn.createStatement()) {
-
-            InputStream is = MemberRepositoryTest.class.getResourceAsStream("/db.sql");
-            if (is == null) {
-                throw new IllegalStateException("db.sql not found in test resources");
-            }
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-                String line;
-                StringBuilder sb = new StringBuilder();
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line).append('\n');
-                }
-                for (String sql : sb.toString().split(";")) {
-                    String trimmed = sql.trim();
-                    if (!trimmed.isEmpty()) {
-                        try {
-                            stmt.execute(trimmed);
-                        } catch (Exception ignored) {
-                            // ignore if already created
-                        }
-                    }
-                }
-            }
-
-            // Insert a test group to reference
-            stmt.execute("INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('test', 'url', 'owner', 'repo')");
+    @Before
+    public void clean() throws Exception {
+        CacheManager.rebuild(true, 60L, 1000L);
+        CacheManager.invalidateAll();
+        try (Connection c = ConnectionPoolConfig.getConnection(); Statement s = c.createStatement()) {
+            s.execute("DELETE FROM MEMBERS WHERE GROUP_ID = " + groupId);
+            s.execute("DELETE FROM IDENTITY_ALIASES WHERE GROUP_ID = " + groupId);
         }
     }
 
     @Test
-    public void create_and_findById_work() throws Exception {
-        // find group id
-        int groupId;
-        try (Connection conn = ConnectionPoolConfig.getConnection();
-             PreparedStatement ps = conn.prepareStatement("SELECT ID FROM GROUPS LIMIT 1");
-             java.sql.ResultSet rs = ps.executeQuery()) {
-            rs.next();
-            groupId = rs.getInt("ID");
-        }
+    public void addsIgnoringCaseListsSortedAndCounts() {
+        assertTrue(repository.addIfAbsent(groupId, "Zed", "Zed Z", true));
+        assertTrue(repository.addIfAbsent(groupId, "alice", "alice", false));
+        assertFalse("already a member, ignoring case", repository.addIfAbsent(groupId, "ALICE", "Alice", true));
 
-        Member member = new Member("John Doe", "johndoe", String.valueOf(groupId));
-
-        MemberRepository repo = new MemberRepository();
-        repo.create(member);
-
-        int count = repo.findById((long) groupId);
-        assertTrue(count >= 1);
+        List<Member> members = repository.findByGroupId(groupId);
+        assertEquals(List.of("alice", "Zed"), members.stream().map(Member::getGitHubUserName).collect(Collectors.toList()));
+        assertEquals("Zed Z", members.get(1).getName());
+        assertEquals(2, repository.findById(groupId));
+        assertTrue(repository.isMember(groupId, "zed"));
+        assertEquals(List.of("Zed", "alice"), repository.findUsernamesByGroupId(groupId));
     }
+
+    @Test
+    public void githubIdIsAlwaysNullAndCreatedManuallyIsKept() throws Exception {
+        repository.addIfAbsent(groupId, "manual-one", "Manual", true);
+        repository.addIfAbsent(groupId, "card-one", "card-one", false);
+
+        try (Connection c = ConnectionPoolConfig.getConnection(); Statement s = c.createStatement();
+             ResultSet rs = s.executeQuery("SELECT GITHUB_USERNAME, GITHUB_ID, CREATED_MANUALLY FROM MEMBERS WHERE GROUP_ID = "
+                     + groupId + " ORDER BY GITHUB_USERNAME")) {
+            assertTrue(rs.next());
+            assertEquals("card-one", rs.getString(1));
+            assertNull(rs.getObject(2));
+            assertFalse(rs.getBoolean(3));
+            assertTrue(rs.next());
+            assertNull(rs.getObject(2));
+            assertTrue(rs.getBoolean(3));
+        }
+    }
+
+    @Test
+    public void writesInvalidateTheCachedListAndCount() {
+        assertEquals(0, repository.findById(groupId));
+        assertTrue(repository.findByGroupId(groupId).isEmpty());
+
+        repository.addIfAbsent(groupId, "bob", "bob", false);
+        assertEquals(1, repository.findById(groupId));
+        assertEquals(1, repository.findByGroupId(groupId).size());
+
+        assertTrue(repository.delete(groupId, "BOB"));
+        assertFalse(repository.delete(groupId, "bob"));
+        assertEquals(0, repository.findById(groupId));
+        assertTrue(repository.findByGroupId(groupId).isEmpty());
+    }
+
+    @Test
+    public void renameChangesTheNameOnly() {
+        repository.addIfAbsent(groupId, "alice", "alice", true);
+        assertEquals(1, repository.findByGroupId(groupId).size());   // cached
+
+        assertEquals(MemberRepository.RenameResult.RENAMED, repository.rename(groupId, "ALICE", "alice", "Alice A."));
+
+        List<Member> members = repository.findByGroupId(groupId);
+        assertEquals("alice", members.get(0).getGitHubUserName());
+        assertEquals("Alice A.", members.get(0).getName());          // cache invalidated
+    }
+
+    @Test
+    public void renameMovesTheManualAssociationsToTheNewLogin() {
+        IdentityAliasRepository aliases = new IdentityAliasRepository();
+        repository.addIfAbsent(groupId, "joao-silv", "Joao", true);
+        aliases.save(groupId, "name:joao", "joao-silv", "professor");
+
+        assertEquals(MemberRepository.RenameResult.RENAMED, repository.rename(groupId, "joao-silv", "joao-silva", "Joao"));
+
+        assertTrue(repository.isMember(groupId, "joao-silva"));
+        assertFalse(repository.isMember(groupId, "joao-silv"));
+        assertEquals("joao-silva", aliases.findByGroupId(groupId).get("name:joao"));
+        assertFalse(aliases.existsForLogin(groupId, "joao-silv"));
+    }
+
+    @Test
+    public void renameFixesTheCaseOfTheLogin() {
+        repository.addIfAbsent(groupId, "ThiagoFP77", "Thiago", true);
+        new IdentityAliasRepository().save(groupId, "name:thiago", "ThiagoFP77", "professor");
+
+        assertEquals(MemberRepository.RenameResult.RENAMED, repository.rename(groupId, "ThiagoFP77", "thiagofp77", "Thiago"));
+
+        assertEquals(List.of("thiagofp77"), repository.findUsernamesByGroupId(groupId));
+        assertEquals("thiagofp77", new IdentityAliasRepository().findByGroupId(groupId).get("name:thiago"));
+    }
+
+    @Test
+    public void renameToAnotherMemberOrOfANonMemberChangesNothing() {
+        IdentityAliasRepository aliases = new IdentityAliasRepository();
+        repository.addIfAbsent(groupId, "alice", "Alice", true);
+        repository.addIfAbsent(groupId, "bob", "Bob", true);
+        aliases.save(groupId, "name:al", "alice", "professor");
+
+        assertEquals(MemberRepository.RenameResult.ALREADY_MEMBER, repository.rename(groupId, "alice", "BOB", "x"));
+        assertEquals(MemberRepository.RenameResult.NOT_MEMBER, repository.rename(groupId, "carol", "dave", "x"));
+
+        assertEquals(List.of("alice", "bob"), repository.findUsernamesByGroupId(groupId));
+        assertEquals("Alice", repository.findByGroupId(groupId).get(0).getName());
+        assertEquals("alice", aliases.findByGroupId(groupId).get("name:al"));
+    }
+
+    @Test
+    public void databaseOfAnOlderVersionWithContributorsForeignKeyStillAcceptsMembers() throws Exception {
+        try (Connection c = ConnectionPoolConfig.getConnection(); Statement s = c.createStatement()) {
+            // schema of the previous versions: CONTRIBUTORS table and MEMBERS.GITHUB_ID -> CONTRIBUTORS.ID
+            s.execute("CREATE TABLE IF NOT EXISTS CONTRIBUTORS(ID INT PRIMARY KEY, LOGIN VARCHAR(255), AVATAR_URL VARCHAR(255),"
+                    + " HTML_URL VARCHAR(255), CONTRIBUTIONS INT, GROUP_ID INT)");
+            s.execute("ALTER TABLE MEMBERS ADD CONSTRAINT IF NOT EXISTS LEGACY_MEMBERS_CONTRIBUTORS FOREIGN KEY (GITHUB_ID) REFERENCES CONTRIBUTORS (ID)");
+        }
+        try {
+            assertTrue(BootstrapDatabaseServletTestSupport.reload());   // db.sql again: starts normally, keeps the old table
+            assertTrue(repository.addIfAbsent(groupId, "legacy-student", "legacy-student", true));
+            assertTrue(repository.isMember(groupId, "legacy-student"));
+        } finally {
+            try (Connection c = ConnectionPoolConfig.getConnection(); Statement s = c.createStatement()) {
+                s.execute("ALTER TABLE MEMBERS DROP CONSTRAINT IF EXISTS LEGACY_MEMBERS_CONTRIBUTORS");
+                s.execute("DROP TABLE IF EXISTS CONTRIBUTORS");
+            }
+        }
+    }
+
 }

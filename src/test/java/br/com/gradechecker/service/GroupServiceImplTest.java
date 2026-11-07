@@ -1,84 +1,78 @@
 package br.com.gradechecker.service;
 
-import br.com.gradechecker.config.ConnectionPoolConfig;
 import br.com.gradechecker.model.Contributor;
 import br.com.gradechecker.model.Group;
+import br.com.gradechecker.model.Member;
+import br.com.gradechecker.proxy.GitHubApiException;
 import br.com.gradechecker.proxy.GitHubProxy;
-import br.com.gradechecker.repository.ContributorsRepository;
 import br.com.gradechecker.repository.GroupRepository;
 import br.com.gradechecker.repository.MemberRepository;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
+/** openspec capability group-members: the group detail only reads (contributors from GitHub, members from the database). */
 public class GroupServiceImplTest {
 
-    @BeforeClass
-    public static void setupDatabase() throws Exception {
-        System.setProperty("DB_URL", "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1");
-        System.setProperty("DB_USER", "sa");
-        System.setProperty("DB_PASS", "");
+    private GroupRepository groups;
+    private MemberRepository members;
+    private GitHubProxy gitHub;
+    private GroupServiceImpl service;
+    private Group stored;
 
-        try (Connection conn = ConnectionPoolConfig.getConnection();
-             Statement stmt = conn.createStatement()) {
-
-            InputStream is = GroupServiceImplTest.class.getResourceAsStream("/db.sql");
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-                String line;
-                StringBuilder sb = new StringBuilder();
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line).append('\n');
-                }
-                for (String sql : sb.toString().split(";")) {
-                    String trimmed = sql.trim();
-                    if (!trimmed.isEmpty()) {
-                        try {
-                            stmt.execute(trimmed);
-                        } catch (Exception ignored) {
-                        }
-                    }
-                }
-            }
-
-            stmt.execute("INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('test', 'url', 'owner', 'repo')");
-        }
+    @Before
+    public void setUp() {
+        groups = mock(GroupRepository.class);
+        members = mock(MemberRepository.class);
+        gitHub = mock(GitHubProxy.class);
+        service = new GroupServiceImpl(groups, members, gitHub);
+        stored = new Group(6, "cannamed", "https://github.com/o/cannamed", "o", "cannamed");
+        when(groups.getGroupDetail(6L)).thenReturn(stored);
     }
 
     @Test
-    public void getGroup_shouldPersistMembers_whenContributorsEmpty() {
-        // create a ContributorsRepository that returns empty initially
-        ContributorsRepository contributorsRepository = new ContributorsRepository();
-        MemberRepository memberRepository = new MemberRepository();
-        GroupRepository groupRepository = new GroupRepository();
+    public void contributorsComeFromGitHubAndNothingIsWritten() {
+        when(members.findByGroupId(6L)).thenReturn(List.of(new Member("Bia", "bia", "6")));
+        when(gitHub.getContributors("token", "o", "cannamed")).thenReturn(List.of(
+                new Contributor("bia", 1, "", "", 3), new Contributor("outsider", 2, "", "", 1)));
 
-        // stubbed GitHubProxy
-        GitHubProxy gitHubProxy = new GitHubProxy() {
-            @Override
-            public List<Contributor> getContributors(String accessKey, String owner, String repo) {
-                List<Contributor> list = new ArrayList<>();
-                Contributor c = new Contributor("johndoe", 123, "", "", 10);
-                list.add(c);
-                return list;
-            }
-        };
+        Group group = service.getGroup(6L, "token");
 
-        GroupServiceImpl service = new GroupServiceImpl(contributorsRepository, groupRepository, memberRepository, gitHubProxy);
+        assertEquals(2, group.getContributors().size());
+        assertEquals(1, group.getTotalOfMembers());
+        assertEquals("bia", group.getMembers().get(0).getGitHubUserName());
+        assertNull(group.getContributorsError());
+        verify(members, never()).addIfAbsent(anyLong(), any(), any(), anyBoolean());
+        verify(members, never()).delete(anyLong(), any());
+        assertNull("the cached group is not changed", stored.getContributors());
+    }
 
-        Group group = service.getGroup(1L, "token");
+    @Test
+    public void memberWithoutCommitsCountsOnlyAsMember() {
+        when(members.findByGroupId(6L)).thenReturn(List.of(new Member("Nova", "nova-aluna", "6"), new Member("bia", "bia", "6")));
+        when(gitHub.getContributors(any(), any(), any())).thenReturn(List.of(new Contributor("bia", 1, "", "", 3)));
 
-        assertNotNull(group);
+        Group group = service.getGroup(6L, "token");
+
+        assertEquals(2, group.getTotalOfMembers());
         assertEquals(1, group.getContributors().size());
-        assertTrue(group.getTotalOfMembers() >= 1);
+    }
+
+    @Test
+    public void gitHubErrorDoesNotBreakThePage() {
+        when(members.findByGroupId(6L)).thenReturn(List.of(new Member("bia", "bia", "6")));
+        when(gitHub.getContributors(any(), any(), any())).thenThrow(
+                new GitHubApiException(404, GitHubApiException.NOT_FOUND, "Repository not found or not accessible with this token."));
+
+        Group group = service.getGroup(6L, "token");
+
+        assertEquals("Repository not found or not accessible with this token.", group.getContributorsError());
+        assertTrue(group.getContributors().isEmpty());
+        assertEquals(1, group.getTotalOfMembers());
     }
 }
-

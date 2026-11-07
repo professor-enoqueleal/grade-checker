@@ -11,6 +11,8 @@ public class Group {
     private String repository;
     private List<Contributor> contributors;
     private int totalOfMembers;
+    private List<Member> members;          // openspec capability group-members
+    private String contributorsError;      // message when the contributors could not be read from GitHub
 
     public Group() {
 
@@ -94,6 +96,24 @@ public class Group {
 
     public void setTotalOfMembers(int totalOfMembers) {
         this.totalOfMembers = totalOfMembers;
+    }
+
+    /** Members of the group (the students), sorted by login. */
+    public List<Member> getMembers() {
+        return members;
+    }
+
+    public void setMembers(List<Member> members) {
+        this.members = members;
+    }
+
+    /** Message shown instead of the contributor cards when GitHub could not be read; null otherwise. */
+    public String getContributorsError() {
+        return contributorsError;
+    }
+
+    public void setContributorsError(String contributorsError) {
+        this.contributorsError = contributorsError;
     }
 
 }

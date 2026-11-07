@@ -1,5 +1,8 @@
 package br.com.gradechecker.servlet;
 
+import br.com.gradechecker.config.AdminConfig;
+import br.com.gradechecker.proxy.GitHubApiException;
+import br.com.gradechecker.proxy.GitHubUserProxy;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,6 +20,7 @@ public class LoginServletTest {
     private HttpServletResponse response;
     private HttpSession session;
     private RequestDispatcher loginPage;
+    private GitHubUserProxy userProxy;
 
     @Before
     public void setUp() {
@@ -24,6 +28,8 @@ public class LoginServletTest {
         response = mock(HttpServletResponse.class);
         session = mock(HttpSession.class);
         loginPage = mock(RequestDispatcher.class);
+        userProxy = mock(GitHubUserProxy.class);
+        when(userProxy.fetchLogin(anyString())).thenReturn("alice");
         when(request.getSession()).thenReturn(session);
         when(request.getSession(true)).thenReturn(session);
         when(request.getSession(false)).thenReturn(session); // a session already exists (login page visited)
@@ -34,12 +40,42 @@ public class LoginServletTest {
     public void validTokenRenewsSessionStoresTokenAndRedirects() throws Exception {
         when(request.getParameter("access-token")).thenReturn("ghp_abc");
 
-        new LoginServlet().doPost(request, response);
+        new LoginServlet(userProxy).doPost(request, response);
 
         InOrder order = inOrder(request, session, response);
         order.verify(request).changeSessionId();
         order.verify(session).setAttribute("accessToken", "ghp_abc");
         order.verify(response).sendRedirect("/home");
+        verify(session).setAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE, "alice");
+    }
+
+    @Test
+    public void tokenRejectedByGitHubShows401WithoutSession() throws Exception {
+        when(request.getParameter("access-token")).thenReturn("ghp_bad");
+        when(userProxy.fetchLogin("ghp_bad")).thenThrow(new GitHubApiException(401, GitHubApiException.UNAUTHORIZED, "rejected"));
+
+        new LoginServlet(userProxy).doPost(request, response);
+
+        verify(response).setStatus(401);
+        verify(request).setAttribute("message", LoginServlet.REJECTED_TOKEN);
+        verify(request).setAttribute("tokenFormOpen", true);
+        verify(loginPage).forward(request, response);
+        verify(session, never()).setAttribute(eq("accessToken"), any());
+        verify(request, never()).changeSessionId();
+        verify(response, never()).sendRedirect(anyString());
+    }
+
+    @Test
+    public void gitHubUnavailableShows502WithoutSession() throws Exception {
+        when(request.getParameter("access-token")).thenReturn("ghp_abc");
+        when(userProxy.fetchLogin("ghp_abc")).thenThrow(new GitHubApiException(502, GitHubApiException.ERROR, "down"));
+
+        new LoginServlet(userProxy).doPost(request, response);
+
+        verify(response).setStatus(502);
+        verify(request).setAttribute("message", LoginServlet.UNVERIFIED_TOKEN);
+        verify(session, never()).setAttribute(eq("accessToken"), any());
+        verify(response, never()).sendRedirect(anyString());
     }
 
     @Test
@@ -48,7 +84,7 @@ public class LoginServletTest {
         when(request.changeSessionId()).thenThrow(new IllegalStateException("no session")); // servlet container behaviour
         when(request.getParameter("access-token")).thenReturn("ghp_abc");
 
-        new LoginServlet().doPost(request, response);
+        new LoginServlet(userProxy).doPost(request, response);
 
         verify(request, never()).changeSessionId();
         verify(session).setAttribute("accessToken", "ghp_abc");
@@ -59,7 +95,7 @@ public class LoginServletTest {
     public void tokenIsTrimmed() throws Exception {
         when(request.getParameter("access-token")).thenReturn("  ghp_abc  ");
 
-        new LoginServlet().doPost(request, response);
+        new LoginServlet(userProxy).doPost(request, response);
 
         verify(session).setAttribute("accessToken", "ghp_abc");
     }
@@ -70,7 +106,7 @@ public class LoginServletTest {
             setUp();
             when(request.getParameter("access-token")).thenReturn(token);
 
-            new LoginServlet().doPost(request, response);
+            new LoginServlet(userProxy).doPost(request, response);
 
             verify(response).setStatus(400);
             verify(request).setAttribute("message", LoginServlet.MISSING_TOKEN);
@@ -79,6 +115,7 @@ public class LoginServletTest {
             verify(session, never()).setAttribute(eq("accessToken"), any());
             verify(request, never()).changeSessionId();
             verify(response, never()).sendRedirect(anyString());
+            verifyNoInteractions(userProxy);
         }
     }
 }

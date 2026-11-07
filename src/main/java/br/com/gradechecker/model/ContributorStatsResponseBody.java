@@ -30,6 +30,33 @@ public class ContributorStatsResponseBody {
     @SerializedName("gitIdentities")
     private List<String> gitIdentities;
 
+    /** Key of an author without account ("email:..." or "name:..."), used to link it manually; null for logins. */
+    @SerializedName("identityKey")
+    private String identityKey;
+
+    /** Identities linked manually to this login (openspec capability identity-aliases); empty when none. */
+    @SerializedName("manualIdentities")
+    private List<ManualIdentity> manualIdentities = Collections.emptyList();
+
+    /** A manual association shown on the login row: its key (for Unlink) and its "name <email>" label. */
+    public static final class ManualIdentity {
+        private final String key;
+        private final String identity;
+
+        public ManualIdentity(String key, String identity) {
+            this.key = key;
+            this.identity = identity;
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public String getIdentity() {
+            return identity;
+        }
+    }
+
     // grading indicators (openspec capability milestone-grading); transient: exposed through gradeDetails only
     private transient double effectiveLines;
     private transient int activeDays;
@@ -80,6 +107,22 @@ public class ContributorStatsResponseBody {
 
     public List<String> getGitIdentities() {
         return gitIdentities;
+    }
+
+    public String getIdentityKey() {
+        return identityKey;
+    }
+
+    public void setIdentityKey(String identityKey) {
+        this.identityKey = identityKey;
+    }
+
+    public List<ManualIdentity> getManualIdentities() {
+        return manualIdentities;
+    }
+
+    public void setManualIdentities(List<ManualIdentity> manualIdentities) {
+        this.manualIdentities = manualIdentities == null ? Collections.emptyList() : manualIdentities;
     }
 
     public void setGradingIndicators(double effectiveLines, int activeDays, int relevantCommits) {

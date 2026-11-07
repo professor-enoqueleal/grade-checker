@@ -39,6 +39,16 @@
             </div>
         </div>
 
+        <%-- identities without account counted for this student (openspec capability commit-history-page) --%>
+        <c:if test="${not empty alsoCounted}">
+            <div class="mb-3 row">
+                <span class="col-sm-2 col-form-label">Also counted:</span>
+                <div class="col-sm-10">
+                    <span class="form-control-plaintext text-break" id="also-counted"><c:forEach var="identity" items="${alsoCounted}" varStatus="s"><c:out value="${identity}"/><c:if test="${not s.last}">, </c:if></c:forEach></span>
+                </div>
+            </div>
+        </c:if>
+
         <div class="mb-3 row">
             <span class="col-sm-2 col-form-label">Total of commits</span>
             <div class="col-sm-10">
@@ -75,7 +85,7 @@
                     </c:forEach>
                 </div>
 
-                <div class="form-text" id="period-text"><c:out value="${periodText}"/></div>
+                <div class="form-text" id="period-text"><c:out value="${periodText}"/> (merge commits excluded)</div>
 
             </div>
         </div>
@@ -128,7 +138,7 @@
         <c:otherwise>
             <c:if test="${truncated}">
                 <div class="alert alert-warning" role="alert">
-                    Only the <c:out value="${totalCommits}"/> most recent commits in this period are listed (configured limit).
+                    Only the most recent commits of the repository in this period were considered (configured limit).
                 </div>
             </c:if>
 
@@ -138,6 +148,7 @@
                         <th scope="col">Date</th>
                         <th scope="col">Message</th>
                         <th scope="col">Commit</th>
+                        <th scope="col">Identity</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -151,6 +162,15 @@
                                         <a href="<c:out value='${commit.url}'/>" target="_blank" rel="noopener noreferrer"><code><c:out value="${commit.sha}"/></code></a>
                                     </c:when>
                                     <c:otherwise><code><c:out value="${commit.sha}"/></code></c:otherwise>
+                                </c:choose>
+                            </td>
+                            <td class="commit-identity">
+                                <c:choose>
+                                    <c:when test="${empty commit.identity}">&mdash;</c:when>
+                                    <c:otherwise>
+                                        <c:out value="${commit.identity}"/>
+                                        <c:if test="${commit.manual}"><span class="badge text-bg-secondary fw-normal ms-1 manual-badge">manual</span></c:if>
+                                    </c:otherwise>
                                 </c:choose>
                             </td>
                         </tr>

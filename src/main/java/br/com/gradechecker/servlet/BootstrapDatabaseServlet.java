@@ -16,7 +16,7 @@ import java.sql.Connection;
 
 /**
  * Creates the schema and seed data at startup from the db.sql packaged in the application
- * (openspec capability database-bootstrap). Tables are recreated at every start (tech debt #2).
+ * (openspec capability database-bootstrap). The script is idempotent: existing tables and data are kept.
  */
 @WebServlet(loadOnStartup = 1, urlPatterns = "/database")
 public class BootstrapDatabaseServlet extends HttpServlet {

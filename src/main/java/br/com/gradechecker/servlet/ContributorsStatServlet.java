@@ -10,8 +10,8 @@ import br.com.gradechecker.config.GradingConfig;
 import br.com.gradechecker.model.ContributorStatsResponseBody;
 import br.com.gradechecker.repository.MemberRepository;
 import br.com.gradechecker.service.GradeCalculator;
-import br.com.gradechecker.service.GradeCalculator.Indicators;
 import br.com.gradechecker.service.GradeCalculator.StudentGrade;
+import br.com.gradechecker.service.GroupGradesService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import jakarta.servlet.ServletException;
@@ -35,6 +35,7 @@ public class ContributorsStatServlet extends HttpServlet {
     private final PeriodResolver periodResolver;
     private final Function<Long, List<String>> roster;     // group id -> members' GitHub usernames
     private final GradingConfig grading;
+    private final GroupGradesService groupGrades;          // grades of the "All" period (shared with /grades)
     private final Gson gson;
 
     public ContributorsStatServlet() {
@@ -51,6 +52,7 @@ public class ContributorsStatServlet extends HttpServlet {
         this.periodResolver = periodResolver;
         this.roster = roster;
         this.grading = grading;
+        this.groupGrades = new GroupGradesService(contributorsService, periodResolver, grading);
         this.gson = new GsonBuilder().serializeNulls().create(); // "since": null for All
     }
 
@@ -134,18 +136,11 @@ public class ContributorsStatServlet extends HttpServlet {
             row.put("percentage", s.getPercentage());
             row.put("linked", s.isLinked());
             row.put("gitIdentities", s.getGitIdentities());
+            row.put("identityKey", s.getIdentityKey());           // openspec capability identity-aliases
+            row.put("manualIdentities", s.getManualIdentities());
             rows.add(row);
         }
         return rows;
-    }
-
-    private static Map<String, Indicators> indicators(List<ContributorStatsResponseBody> stats) {
-        Map<String, Indicators> byAuthor = new LinkedHashMap<>();
-        for (ContributorStatsResponseBody s : stats) {
-            byAuthor.put(s.getAuthor(), new Indicators(s.getEffectiveLines(), s.getActiveDays(), s.getRelevantCommits(),
-                    s.getCommits(), s.getTotalAdditions() + s.getTotalDeletions()));
-        }
-        return byAuthor;
     }
 
     /** Adds grade fields to the rows and returns the "grading" block; null when there is no grade (custom period or no group). */
@@ -160,9 +155,11 @@ public class ContributorsStatServlet extends HttpServlet {
         info.put("tolerance", grading.getTolerance());
 
         if (period.getKey().startsWith("m")) {
-            GradeCalculator.Result result = calculator.calculate(indicators(report.getConsolidatedStats()), members);
+            GradeCalculator.Result result = calculator.calculate(GroupGradesService.indicators(report.getConsolidatedStats()), members);
 
-            addMissingStudents(rows, result.students());
+            List<String> logins = new ArrayList<>();
+            for (StudentGrade g : result.students()) logins.add(g.getLogin());
+            addMissingStudents(rows, logins);
             for (Map<String, Object> row : rows) {
                 StudentGrade g = result.of((String) row.get("author"));
                 row.put("grade", g == null ? null : g.getGrade());
@@ -177,69 +174,41 @@ public class ContributorsStatServlet extends HttpServlet {
             return info;
         }
 
-        // all: grades of every milestone already started, and their sum
-        Map<String, Map<String, Double>> milestoneGrades = new HashMap<>();
-        List<String> provisional = new ArrayList<>();
-        Set<StudentGrade> anyStudents = new LinkedHashSet<>();
-        int students = 0;
+        // all: grades of every milestone already started, and their sum (same service as /grades)
+        GroupGradesService.GroupGrades grades = groupGrades.of(Long.parseLong(request.getGroupId().trim()),
+                request.getOwner(), request.getRepository(), request.getAccessToken(), members);
 
-        for (int n = 1; n <= 3; n++) {
-            String key = "m" + n;
-            ResolvedPeriod milestone = periodResolver.resolve(key, null, null);
-            if (milestone.getError() != null) continue; // not configured or not started: "—"
+        List<String> logins = new ArrayList<>();
+        for (GroupGradesService.StudentGrades g : grades.getStudents()) logins.add(g.getLogin());
+        addMissingStudents(rows, logins);
 
-            CommitRequestBody milestoneRequest = new CommitRequestBody(request.getRepository(), request.getOwner(), null,
-                    milestone.getSinceIso(), milestone.getUntilIso(), request.getAccessToken(), request.getGroupId());
-            GradeCalculator.Result result = calculator.calculate(
-                    indicators(contributorsService.getContributionsReport(milestoneRequest).getConsolidatedStats()), members);
-
-            students = result.students().size();
-            anyStudents.addAll(result.students());
-            for (StudentGrade g : result.students()) {
-                milestoneGrades.computeIfAbsent(g.getLogin().toLowerCase(Locale.ROOT), k -> new LinkedHashMap<>()).put(key, g.getGrade());
-            }
-            if (periodResolver.isInProgress(milestone)) provisional.add(key);
-        }
-
-        addMissingStudents(rows, anyStudents);
         for (Map<String, Object> row : rows) {
-            String login = ((String) row.get("author")).toLowerCase(Locale.ROOT);
-            Map<String, Double> grades = milestoneGrades.get(login);
-            if (grades == null) {
-                row.put("milestoneGrades", null);
-                row.put("total", null);
-                continue;
-            }
-            Map<String, Double> all = new LinkedHashMap<>();
-            double total = 0;
-            for (int n = 1; n <= 3; n++) {
-                Double g = grades.get("m" + n);
-                all.put("m" + n, g);
-                if (g != null) total += g;
-            }
-            row.put("milestoneGrades", all);
-            row.put("total", GradeCalculator.round(total));
+            GroupGradesService.StudentGrades g = grades.of((String) row.get("author"));
+            row.put("milestoneGrades", g == null ? null : g.getMilestones());
+            row.put("total", g == null ? null : g.getTotal());
         }
 
-        info.put("students", students);
-        info.put("provisionalMilestones", provisional);
+        info.put("students", grades.getStudents().size());
+        info.put("provisionalMilestones", grades.getProvisionalMilestones());
         return info;
     }
 
     /** Students without commits in the period still appear (zeros), so that a 0.00 grade is visible. */
-    private static void addMissingStudents(List<Map<String, Object>> rows, Collection<StudentGrade> students) {
+    private static void addMissingStudents(List<Map<String, Object>> rows, Collection<String> students) {
         Set<String> present = new HashSet<>();
         for (Map<String, Object> row : rows) present.add(((String) row.get("author")).toLowerCase(Locale.ROOT));
-        for (StudentGrade g : students) {
-            if (present.add(g.getLogin().toLowerCase(Locale.ROOT))) {
+        for (String login : students) {
+            if (present.add(login.toLowerCase(Locale.ROOT))) {
                 Map<String, Object> row = new LinkedHashMap<>();
-                row.put("author", g.getLogin());
+                row.put("author", login);
                 row.put("commits", 0);
                 row.put("totalAdditions", 0);
                 row.put("totalDeletions", 0);
                 row.put("percentage", 0.0);
                 row.put("linked", true);
                 row.put("gitIdentities", Collections.emptyList());
+                row.put("identityKey", null);
+                row.put("manualIdentities", Collections.emptyList());
                 rows.add(row);
             }
         }

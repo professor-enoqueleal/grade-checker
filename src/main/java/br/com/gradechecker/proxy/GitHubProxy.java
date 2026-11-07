@@ -97,105 +97,6 @@ public class GitHubProxy {
 
     }
 
-    /**
-     * Commits of the repository default branch (optionally of one author) within [since, until],
-     * following pagination up to GH_DASHBOARD_MAX_COMMITS. since/until/author are only sent when defined
-     * (since == null means the whole history). Only complete results are cached.
-     *
-     * @throws GitHubApiException when GitHub answers with an error
-     */
-    public CommitsPage getCommits(CommitRequestBody request) {
-
-        final int maxCommits = maxCommits();
-
-        final String cacheKey = String.format("github.commits::%s:%s:%s:%s:%s:%d:%s",
-                request.getOwner(),
-                request.getRepository(),
-                orDash(request.getCommitAuthor()),
-                orDash(request.getSince()),
-                orDash(request.getUntil()),
-                maxCommits,
-                tokenHash(request.getAccessToken())
-        );
-
-        CommitsPage cached = CacheManager.get(cacheKey, CommitsPage.class);
-
-        if (cached != null) {
-            return cached;
-        }
-
-        List<Commit> commits = new ArrayList<>();
-        int maxPages = (maxCommits + PAGE_SIZE - 1) / PAGE_SIZE;
-        int page = 0;
-        boolean hasNext = false;
-
-        do {
-
-            page++;
-
-            HttpResponse<String> response;
-
-            try {
-
-                kong.unirest.GetRequest get = Unirest.get(baseUrl + "/repos/{owner}/{repo}/commits")
-                        .header("Accept", "application/json")
-                        .header("Authorization", String.format("Bearer %s", request.getAccessToken()))
-                        .header("X-GitHub-Api-Version", githubApiVersion)
-                        .routeParam("owner", request.getOwner())
-                        .routeParam("repo", request.getRepository());
-
-                kong.unirest.HttpRequest<?> call = get.queryString("per_page", PAGE_SIZE).queryString("page", page);
-
-                if (isPresent(request.getCommitAuthor())) call = call.queryString("author", request.getCommitAuthor());
-                if (isPresent(request.getSince())) call = call.queryString("since", request.getSince());
-                if (isPresent(request.getUntil())) call = call.queryString("until", request.getUntil());
-
-                response = call.asString();
-
-            } catch (Exception e) {
-
-                logger.error("Error on retrieve commits information. Cause: {}", e.getMessage());
-                throw new GitHubApiException(502, GitHubApiException.ERROR, "Could not connect to GitHub. Please try again.", e);
-
-            }
-
-            if (response.getStatus() == 409) {
-                // "Git Repository is empty"
-                break;
-            }
-
-            if (response.getStatus() != 200) {
-                throw httpError(response);
-            }
-
-            List<Commit> body;
-
-            try {
-                body = GSON.fromJson(response.getBody(), COMMIT_LIST);
-            } catch (Exception e) {
-                throw new GitHubApiException(502, GitHubApiException.ERROR, "Invalid response from GitHub.", e);
-            }
-
-            if (body != null) commits.addAll(body);
-
-            hasNext = header(response, "Link").contains("rel=\"next\"")
-                    || (body != null && body.size() == PAGE_SIZE && header(response, "Link").isEmpty());
-
-        } while (hasNext && page < maxPages);
-
-        boolean truncated = hasNext && page >= maxPages;
-
-        CommitsPage result = new CommitsPage(commits, truncated);
-
-        logger.info("success on get commits information ({} commits, {} pages, truncated={})", commits.size(), page, truncated);
-
-        CacheManager.put(cacheKey, result);
-
-        return result;
-
-    }
-
-    private static final java.lang.reflect.Type COMMIT_LIST = new com.google.gson.reflect.TypeToken<List<Commit>>() { }.getType();
 
     private static boolean isPresent(String value) {
         return value != null && !value.trim().isEmpty();
@@ -262,7 +163,7 @@ public class GitHubProxy {
             + "  defaultBranchRef { target { ... on Commit {"
             + "   history(first: " + PAGE_SIZE + ", since: $since, until: $until, after: $cursor) {"
             + "    pageInfo { hasNextPage endCursor }"
-            + "    nodes { committedDate additions deletions changedFilesIfAvailable parents { totalCount } author { name email user { login } } }"
+            + "    nodes { oid message url committedDate additions deletions changedFilesIfAvailable parents { totalCount } author { name email user { login } } }"
             + "   } } } }"
             + " }"
             + "}";
@@ -275,16 +176,25 @@ public class GitHubProxy {
      * @throws GitHubApiException when GitHub answers with an error (never returns an empty list on error)
      */
     public ContributionsReport getContributionsReport(CommitRequestBody request) {
+        return getContributionsReport(request, Collections.emptyMap());
+    }
 
-        final int maxCommits = maxCommits();
+    /**
+     * @param aliases manual associations of the group (identity key -> login, openspec capability identity-aliases);
+     *                part of the cache key, so linking or unlinking an identity never serves a stale report
+     */
+    public ContributionsReport getContributionsReport(CommitRequestBody request, Map<String, String> aliases) {
 
-        final String cacheKey = String.format("github.contributions::%s:%s:%s:%s:%d:%s",
+        final Map<String, String> groupAliases = aliases == null ? Collections.emptyMap() : aliases;
+
+        final String cacheKey = String.format("github.contributions::%s:%s:%s:%s:%d:%s:%s",
                 request.getOwner(),
                 request.getRepository(),
                 orDash(request.getSince()),
                 orDash(request.getUntil()),
-                maxCommits,
-                tokenHash(request.getAccessToken())
+                maxCommits(),
+                tokenHash(request.getAccessToken()),
+                aliasesFingerprint(groupAliases)
         );
 
         ContributionsReport cached = CacheManager.get(cacheKey, ContributionsReport.class);
@@ -293,8 +203,76 @@ public class GitHubProxy {
             return cached;
         }
 
-        AuthorAggregator aggregator = new AuthorAggregator(grading, zone);
+        RepositoryHistory history = getHistory(request);
+        AuthorAggregator aggregator = aggregate(history, groupAliases);
         int totalCommits = 0;
+        for (HistoryCommit commit : history.getCommits()) if (!commit.isMerge()) totalCommits++;
+
+        ContributionsReport report = new ContributionsReport(
+                request.getSince(), request.getUntil(), totalCommits, history.isTruncated(), aggregator.result());
+
+        CacheManager.put(cacheKey, report);
+
+        return report;
+
+    }
+
+    /**
+     * Non-merge commits of the period, each with the author it is counted for (same rules as the dashboard,
+     * including the manual associations of the group) - openspec capability commit-history-page.
+     *
+     * @throws GitHubApiException when GitHub answers with an error
+     */
+    public AttributedHistory getCommitHistory(CommitRequestBody request, Map<String, String> aliases) {
+
+        RepositoryHistory history = getHistory(request);
+        AuthorAggregator aggregator = aggregate(history, aliases == null ? Collections.emptyMap() : aliases);
+
+        List<AttributedCommit> commits = new ArrayList<>();
+        for (HistoryCommit commit : history.getCommits()) {
+            if (!commit.isMerge()) commits.add(aggregator.attributionOf(commit));
+        }
+
+        return new AttributedHistory(history.isTruncated(), commits);
+    }
+
+    /** Phase 1 of the aggregation with every non-merge commit of the history. */
+    private AuthorAggregator aggregate(RepositoryHistory history, Map<String, String> aliases) {
+        AuthorAggregator aggregator = new AuthorAggregator(grading, zone, aliases);
+        for (HistoryCommit c : history.getCommits()) {
+            if (c.isMerge()) continue;
+            aggregator.add(c.getAuthorLogin(), c.getAuthorName(), c.getAuthorEmail(), c.getAdditions(), c.getDeletions(),
+                    c.getCommittedDate(), c.getChangedFiles());
+        }
+        return aggregator;
+    }
+
+    /**
+     * Commits of the default branch within [since, until] (merges included), read once with GraphQL and shared by
+     * the dashboard and the commit history page. Cached without the aliases; only complete results are cached.
+     *
+     * @throws GitHubApiException when GitHub answers with an error
+     */
+    public RepositoryHistory getHistory(CommitRequestBody request) {
+
+        final int maxCommits = maxCommits();
+
+        final String cacheKey = String.format("github.history::%s:%s:%s:%s:%d:%s",
+                request.getOwner(),
+                request.getRepository(),
+                orDash(request.getSince()),
+                orDash(request.getUntil()),
+                maxCommits,
+                tokenHash(request.getAccessToken())
+        );
+
+        RepositoryHistory cached = CacheManager.get(cacheKey, RepositoryHistory.class);
+
+        if (cached != null) {
+            return cached;
+        }
+
+        List<HistoryCommit> commits = new ArrayList<>();
         int maxPages = (maxCommits + PAGE_SIZE - 1) / PAGE_SIZE;
         int pages = 0;
         String cursor = null;
@@ -307,7 +285,7 @@ public class GitHubProxy {
             JsonObject history = child(child(child(repository, "defaultBranchRef"), "target"), "history");
 
             if (history == null) {
-                // empty repository (no default branch) -> no contributions
+                // empty repository (no default branch) -> no commits
                 break;
             }
 
@@ -316,14 +294,12 @@ public class GitHubProxy {
                 if (element == null || !element.isJsonObject()) continue;
 
                 JsonObject node = element.getAsJsonObject();
-
-                if (integer(child(node, "parents"), "totalCount") > 1) continue; // merge commit
-
                 JsonObject author = child(node, "author");
-                aggregator.add(text(child(author, "user"), "login"), text(author, "name"), text(author, "email"),
-                        integer(node, "additions"), integer(node, "deletions"),
-                        text(node, "committedDate"), integer(node, "changedFilesIfAvailable"));
-                totalCommits++;
+
+                commits.add(new HistoryCommit(text(node, "oid"), text(node, "message"), text(node, "url"),
+                        text(node, "committedDate"), integer(node, "additions"), integer(node, "deletions"),
+                        integer(node, "changedFilesIfAvailable"), integer(child(node, "parents"), "totalCount"),
+                        text(author, "name"), text(author, "email"), text(child(author, "user"), "login")));
 
             }
 
@@ -336,16 +312,23 @@ public class GitHubProxy {
 
         boolean truncated = hasNextPageAfterLimit(pages, maxPages, cursor);
 
-        ContributionsReport report = new ContributionsReport(
-                request.getSince(), request.getUntil(), totalCommits, truncated, aggregator.result());
+        RepositoryHistory result = new RepositoryHistory(request.getSince(), request.getUntil(), truncated, commits);
 
-        logger.info("success on get contributions report for {}/{} ({} commits, {} pages, truncated={})",
-                request.getOwner(), request.getRepository(), totalCommits, pages, truncated);
+        logger.info("success on get history of {}/{} ({} commits, {} pages, truncated={})",
+                request.getOwner(), request.getRepository(), commits.size(), pages, truncated);
 
-        CacheManager.put(cacheKey, report);
+        CacheManager.put(cacheKey, result);
 
-        return report;
+        return result;
 
+    }
+
+    /** "-" without aliases; otherwise a hash of the sorted entries. */
+    private String aliasesFingerprint(Map<String, String> aliases) {
+        if (aliases.isEmpty()) return "-";
+        StringBuilder entries = new StringBuilder();
+        new TreeMap<>(aliases).forEach((key, login) -> entries.append(key).append('=').append(login).append('\n'));
+        return tokenHash(entries.toString());
     }
 
     private static boolean hasNextPageAfterLimit(int pages, int maxPages, String cursor) {

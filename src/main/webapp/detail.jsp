@@ -158,7 +158,8 @@
     <div id="content" class="text-center"
          data-owner="<c:out value='${group.owner}'/>"
          data-repo="<c:out value='${group.repository}'/>"
-         data-group-id="<c:out value='${group.id}'/>">
+         data-group-id="<c:out value='${group.id}'/>"
+         data-admin="${isAdmin ? 'true' : 'false'}">
 
         <!-- period buttons (openspec/changes/filtro-por-marcos): the page loads the dashboard with All on open -->
         <div class="btn-group flex-wrap mb-2" role="group" aria-label="Period" id="period-buttons">
@@ -287,6 +288,34 @@
 </div>
 <!-- end modal -->
 
+<%-- manual association of an identity without account (openspec capability identity-aliases): administrators only --%>
+<c:if test="${isAdmin}">
+<div class="modal fade" id="linkIdentityModal" tabindex="-1" aria-labelledby="linkIdentityModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="linkIdentityModalLabel">Link to student</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small">Commits of <strong id="link-identity-label"></strong> will be counted for the selected student in every period, including grades.</p>
+                <label for="link-identity-login" class="form-label">Student</label>
+                <select class="form-select" id="link-identity-login">
+                    <c:forEach var="login" items="${aliasTargets}">
+                        <option value="<c:out value='${login}'/>"><c:out value="${login}"/></option>
+                    </c:forEach>
+                </select>
+                <div id="link-identity-error" class="alert alert-danger d-none mt-3 mb-0 small" role="alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-link-identity">Link</button>
+            </div>
+        </div>
+    </div>
+</div>
+</c:if>
+
 <script>
         // Dashboard de contribuições (openspec/changes/corrigir-dashboard-contribuicoes)
         let contributorChart = null;
@@ -303,23 +332,100 @@
             return $("<td>").text(text);
         }
 
+        let isAdmin = false; // GRADE_CHECKER_ADMINS: may link identities (openspec capability identity-aliases)
+
         // author name + "No GitHub account" badge for commits not linked to a login (openspec change identidades-autores)
         function authorCell(stat) {
             const td = $("<td>").append($("<span>").addClass("author-name").text(stat.author));
-            const identities = (stat.gitIdentities || []).join(", ");
+            const manual = stat.manualIdentities || [];
+            const manualLabels = new Set(manual.map(function (m) { return m.identity; }));
+            const identities = (stat.gitIdentities || []).map(function (i) {
+                return manualLabels.has(i) ? i + " (manual)" : i;
+            }).join(", ");
             if (stat.linked === false) {
                 $("<span>").addClass("badge text-bg-warning fw-normal ms-2 no-account-badge")
                     .text("No GitHub account")
                     .attr("title", "Commits not linked to a GitHub account: " + identities)
                     .appendTo(td);
+                if (isAdmin && stat.identityKey) {
+                    $("<button>").attr("type", "button")
+                        .addClass("btn btn-sm btn-outline-primary py-0 ms-2 link-identity-button")
+                        .text("Link to student")
+                        .attr("data-identity-key", stat.identityKey)
+                        .attr("data-identity-label", stat.author)
+                        .appendTo(td);
+                }
             } else if (identities) {
-                // unlinked commits added to this login (same e-mail or git name equal to the login)
+                // unlinked commits added to this login (same e-mail, git name equal to the login, or manual link)
                 $("<span>").addClass("badge text-bg-secondary fw-normal ms-2 includes-unlinked-badge")
                     .text("Includes unlinked commits")
                     .attr("title", "Also counted here (commits not linked to the account): " + identities)
                     .appendTo(td);
             }
+            manual.forEach(function (m) {
+                const line = $(document.createElement("div")).addClass("small text-body-secondary manual-identity")
+                    .text("Linked manually: " + m.identity);
+                if (isAdmin) {
+                    $("<button>").attr("type", "button")
+                        .addClass("btn btn-link btn-sm p-0 ms-2 align-baseline unlink-identity-button")
+                        .text("Unlink")
+                        .attr("data-identity-key", m.key)
+                        .attr("data-identity-label", m.identity)
+                        .appendTo(line);
+                }
+                line.appendTo(td);
+            });
             return td;
+        }
+
+        // ---------------- manual association (openspec capability identity-aliases) ----------------
+
+        const ajaxHeaders = { headers: { "X-Requested-With": "XMLHttpRequest" } };
+        let identityToLink = null;
+
+        function errorMessage(error, fallback) {
+            const body = error.response && error.response.data;
+            return body && body.message ? body.message : fallback;
+        }
+
+        function openLinkModal(button) {
+            identityToLink = button.attr("data-identity-key");
+            $("#link-identity-label").text(button.attr("data-identity-label"));
+            $("#link-identity-error").addClass("d-none").text("");
+            const hasStudents = $("#link-identity-login option").length > 0;
+            $("#confirm-link-identity").prop("disabled", !hasStudents);
+            if (!hasStudents) {
+                $("#link-identity-error").text("No students registered in this group.").removeClass("d-none");
+            }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("linkIdentityModal")).show();
+        }
+
+        function confirmLink() {
+            const button = $("#confirm-link-identity").prop("disabled", true);
+            const form = new URLSearchParams({
+                groupId: $("#content").data("group-id"),
+                identityKey: identityToLink,
+                login: $("#link-identity-login").val()
+            });
+            axios.post("/identity-aliases", form, ajaxHeaders)
+                .then(function () {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById("linkIdentityModal")).hide();
+                    loadData();
+                })
+                .catch(function (error) {
+                    $("#link-identity-error").text(errorMessage(error, "Could not link the identity. Please try again.")).removeClass("d-none");
+                })
+                .finally(function () { button.prop("disabled", false); });
+        }
+
+        function unlink(button) {
+            if (!window.confirm("Unlink " + button.attr("data-identity-label") + "? Its commits will no longer be counted for this student.")) return;
+            axios.delete("/identity-aliases", {
+                    params: { groupId: $("#content").data("group-id"), identityKey: button.attr("data-identity-key") },
+                    headers: ajaxHeaders.headers
+                })
+                .then(function () { loadData(); })
+                .catch(function (error) { showAlert("danger", errorMessage(error, "Could not unlink the identity. Please try again.")); });
         }
 
         // ---------------- milestone grades (openspec capability milestone-grading) ----------------
@@ -367,7 +473,8 @@
             const notice = $("#grading-alert").addClass("d-none").text("");
             const g = data.grading;
             if (g && g.excludedCommits > 0) {
-                notice.text(g.excludedCommits + " commits not counted in grades (authors not linked to group members).").removeClass("d-none");
+                notice.text(g.excludedCommits + " commits not counted in grades (authors not linked to group members)."
+                    + (isAdmin ? " Use \"Link to student\" to count them for a student." : "")).removeClass("d-none");
             } else if (g && g.students === 0) {
                 notice.text("No students registered in this group: grades are not available.").removeClass("d-none");
             }
@@ -517,6 +624,12 @@
         }
 
         $(document).ready(function () {
+            isAdmin = $("#content").data("admin") === true;
+            $("#contributions-tbody")
+                .on("click", ".link-identity-button", function () { openLinkModal($(this)); })
+                .on("click", ".unlink-identity-button", function () { unlink($(this)); });
+            $("#confirm-link-identity").on("click", confirmLink);
+
             groupContributors = $("#contributions-tbody tr[data-login]").map(function () {
                 return $(this).attr("data-login");
             }).get();

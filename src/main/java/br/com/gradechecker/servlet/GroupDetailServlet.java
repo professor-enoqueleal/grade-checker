@@ -1,6 +1,9 @@
 package br.com.gradechecker.servlet;
 
+import br.com.gradechecker.config.AdminConfig;
+import br.com.gradechecker.config.GradingConfig;
 import br.com.gradechecker.model.Group;
+import br.com.gradechecker.repository.MemberRepository;
 import br.com.gradechecker.service.GroupService;
 import br.com.gradechecker.service.GroupServiceImpl;
 import br.com.gradechecker.service.PeriodResolver;
@@ -11,16 +14,22 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @WebServlet("/detail")
 public class GroupDetailServlet extends HttpServlet {
 
     private final GroupService groupService;
     private final PeriodResolver periodResolver;
+    private final MemberRepository memberRepository;
+    private final GradingConfig grading;
 
     public GroupDetailServlet() {
         this.groupService = new GroupServiceImpl();
         this.periodResolver = new PeriodResolver();
+        this.memberRepository = new MemberRepository();
+        this.grading = GradingConfig.fromClasspath();
     }
 
     @Override
@@ -40,6 +49,16 @@ public class GroupDetailServlet extends HttpServlet {
         // botões de período do dashboard (primeira carga em All)
         httpServletRequest.setAttribute("periodOptions", periodResolver.options(PeriodResolver.ALL));
         httpServletRequest.setAttribute("customUntil", periodResolver.toInputValue(periodResolver.all().getUntil()));
+
+        // manual association of identities (openspec capability identity-aliases): administrators only
+        boolean admin = AdminConfig.isAdmin(httpServletRequest.getSession(false));
+        httpServletRequest.setAttribute("isAdmin", admin);
+        if (admin) {
+            List<String> students = memberRepository.findUsernamesByGroupId(group.getId()).stream()
+                    .filter(grading::isStudentLogin)
+                    .collect(Collectors.toList());
+            httpServletRequest.setAttribute("aliasTargets", students);
+        }
 
         httpServletRequest.getRequestDispatcher("detail.jsp").forward(httpServletRequest, httpServletResponse);
 

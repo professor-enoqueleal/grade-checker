@@ -1,7 +1,9 @@
 package br.com.gradechecker.servlet;
 
+import br.com.gradechecker.config.AdminConfig;
 import br.com.gradechecker.model.AccessToken;
 import br.com.gradechecker.proxy.AuthenticationProxy;
+import br.com.gradechecker.proxy.GitHubUserProxy;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -17,7 +19,7 @@ import java.security.MessageDigest;
 
 /**
  * GitHub OAuth callback: validates the one-time state, exchanges the code for a token and renews the
- * session id (openspec capability github-sign-in).
+ * session id (openspec capability github-sign-in); the user login is kept in the session (platform-admin).
  */
 @WebServlet("/callback")
 public class AuthenticationCallbackServlet extends HttpServlet {
@@ -28,13 +30,15 @@ public class AuthenticationCallbackServlet extends HttpServlet {
     private final Logger logger = LogManager.getLogger(this.getClass());
 
     private final AuthenticationProxy authenticationProxy;
+    private final GitHubUserProxy userProxy;
 
     public AuthenticationCallbackServlet() {
-        this(new AuthenticationProxy());
+        this(new AuthenticationProxy(), new GitHubUserProxy());
     }
 
-    public AuthenticationCallbackServlet(AuthenticationProxy authenticationProxy) {
+    public AuthenticationCallbackServlet(AuthenticationProxy authenticationProxy, GitHubUserProxy userProxy) {
         this.authenticationProxy = authenticationProxy;
+        this.userProxy = userProxy;
     }
 
     @Override
@@ -70,8 +74,19 @@ public class AuthenticationCallbackServlet extends HttpServlet {
             return;
         }
 
+        String userLogin;
+
+        try {
+            userLogin = userProxy.fetchLogin(accessToken.getAccessToken());
+        } catch (RuntimeException e) {
+            logger.error("GitHub sign-in failed: could not identify the user ({})", e.getMessage());
+            showLogin(request, response, FAILED);
+            return;
+        }
+
         request.changeSessionId(); // session fixation protection
         request.getSession().setAttribute("accessToken", accessToken.getAccessToken());
+        request.getSession().setAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE, userLogin);
 
         response.sendRedirect("/home");
     }

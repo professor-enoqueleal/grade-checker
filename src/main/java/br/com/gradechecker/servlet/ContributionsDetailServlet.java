@@ -1,11 +1,14 @@
 package br.com.gradechecker.servlet;
 
-import br.com.gradechecker.model.Commit;
+import br.com.gradechecker.model.AttributedCommit;
+import br.com.gradechecker.model.AttributedHistory;
+import br.com.gradechecker.model.AttributionSource;
 import br.com.gradechecker.model.CommitRequestBody;
 import br.com.gradechecker.model.CommitRow;
-import br.com.gradechecker.model.CommitsPage;
+import br.com.gradechecker.model.HistoryCommit;
 import br.com.gradechecker.proxy.GitHubApiException;
 import br.com.gradechecker.proxy.GitHubProxy;
+import br.com.gradechecker.repository.IdentityAliasRepository;
 import br.com.gradechecker.service.PeriodResolver;
 import br.com.gradechecker.service.PeriodResolver.ResolvedPeriod;
 import jakarta.servlet.ServletException;
@@ -17,25 +20,35 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 /**
- * Commits of one author in a period (milestone buttons, All or Custom).
- * See openspec/changes/filtro-por-marcos (capabilities milestone-period-filter and commit-history-page).
+ * Commits counted for one author in a period (milestone buttons, All or Custom), with the same attribution as the
+ * dashboard, including the manual associations of the group (openspec capability commit-history-page).
  */
 @WebServlet("/contributions-detail")
 public class ContributionsDetailServlet extends HttpServlet {
 
     private final GitHubProxy gitHubProxy;
     private final PeriodResolver periodResolver;
+    private final Function<Long, Map<String, String>> aliasesByGroup;
 
     public ContributionsDetailServlet() {
-        this(new GitHubProxy(), new PeriodResolver());
+        this(new GitHubProxy(), new PeriodResolver(), new IdentityAliasRepository()::findByGroupId);
     }
 
     public ContributionsDetailServlet(GitHubProxy gitHubProxy, PeriodResolver periodResolver) {
+        this(gitHubProxy, periodResolver, groupId -> Collections.emptyMap());
+    }
+
+    public ContributionsDetailServlet(GitHubProxy gitHubProxy, PeriodResolver periodResolver,
+                                      Function<Long, Map<String, String>> aliasesByGroup) {
         this.gitHubProxy = gitHubProxy;
         this.periodResolver = periodResolver;
+        this.aliasesByGroup = aliasesByGroup;
     }
 
     @Override
@@ -68,20 +81,34 @@ public class ContributionsDetailServlet extends HttpServlet {
         CommitRequestBody commitRequestBody = new CommitRequestBody(
                 repo, owner, author, period.getSinceIso(), period.getUntilIso(), accessToken, groupId);
 
-        List<CommitRow> rows = Collections.emptyList();
+        List<CommitRow> rows = new ArrayList<>();
+        Map<String, Boolean> alsoCounted = new LinkedHashMap<>(); // identity -> manual
         boolean truncated = false;
 
         try {
 
-            CommitsPage page = gitHubProxy.getCommits(commitRequestBody);
-            rows = toRows(page.getCommits());
-            truncated = page.isTruncated();
+            AttributedHistory history = gitHubProxy.getCommitHistory(commitRequestBody, aliasesOf(groupId));
+            truncated = history.isTruncated();
+
+            for (AttributedCommit commit : history.getCommits()) {
+                if (!isCountedFor(commit, author)) continue;
+                boolean manual = commit.getSource() == AttributionSource.MANUAL;
+                rows.add(toRow(commit, manual));
+                if (commit.getSource() != AttributionSource.ACCOUNT && commit.getIdentity() != null) {
+                    alsoCounted.merge(commit.getIdentity(), manual, Boolean::logicalOr);
+                }
+            }
 
         } catch (GitHubApiException e) {
 
+            rows.clear();
+            alsoCounted.clear();
             request.setAttribute("githubError", e.getMessage());
 
         }
+
+        List<String> alsoCountedLabels = new ArrayList<>();
+        alsoCounted.forEach((identity, manual) -> alsoCountedLabels.add(manual ? identity + " (manual)" : identity));
 
         request.setAttribute("author", author);
         request.setAttribute("owner", owner);
@@ -89,6 +116,7 @@ public class ContributionsDetailServlet extends HttpServlet {
         request.setAttribute("groupId", groupId);
         request.setAttribute("commits", rows);
         request.setAttribute("totalCommits", rows.size());
+        request.setAttribute("alsoCounted", alsoCountedLabels);
         request.setAttribute("truncated", truncated);
         request.setAttribute("periodKey", period.getKey());
         request.setAttribute("periodText", periodResolver.describe(period));
@@ -100,21 +128,27 @@ public class ContributionsDetailServlet extends HttpServlet {
 
     }
 
-    private List<CommitRow> toRows(List<Commit> commits) {
+    /** Commits attributed to the login (case-insensitive); authors without account never match. */
+    private static boolean isCountedFor(AttributedCommit commit, String author) {
+        return author != null && commit.isLinked() && commit.getAuthor() != null
+                && commit.getAuthor().trim().equalsIgnoreCase(author.trim());
+    }
 
-        List<CommitRow> rows = new ArrayList<>();
+    private CommitRow toRow(AttributedCommit attributed, boolean manual) {
+        HistoryCommit commit = attributed.getCommit();
+        String date = commit.getCommittedDate() == null ? "" : periodResolver.formatDateTime(commit.getCommittedDate());
+        String url = commit.getUrl() != null && commit.getUrl().startsWith("https://github.com/") ? commit.getUrl() : null;
+        String identity = attributed.getSource() == AttributionSource.ACCOUNT ? null : attributed.getIdentity();
+        return new CommitRow(date, commit.getMessage() == null ? "" : commit.getMessage(), commit.getOid(), url, identity, manual);
+    }
 
-        for (Commit commit : commits) {
-
-            String date = commit.getCommit() != null && commit.getCommit().getCommitter() != null
-                    ? periodResolver.formatDateTime(commit.getCommit().getCommitter().getIsoDate()) : "";
-            String message = commit.getCommit() != null ? commit.getCommit().getMessage() : "";
-            String url = commit.getHtmlUrl() != null && commit.getHtmlUrl().startsWith("https://github.com/") ? commit.getHtmlUrl() : null;
-
-            rows.add(new CommitRow(date, message, commit.getSha(), url));
+    private Map<String, String> aliasesOf(String groupId) {
+        if (groupId == null || groupId.trim().isEmpty()) return Collections.emptyMap();
+        try {
+            return aliasesByGroup.apply(Long.parseLong(groupId.trim()));
+        } catch (NumberFormatException e) {
+            return Collections.emptyMap();
         }
-
-        return rows;
     }
 
 }

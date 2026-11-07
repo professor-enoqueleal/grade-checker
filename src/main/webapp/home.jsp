@@ -25,7 +25,12 @@
     </nav>
     <hr>
 
-    <h4>Groups</h4>
+    <div class="d-flex justify-content-between align-items-center">
+        <h4>Groups</h4>
+        <c:if test="${isAdmin}">
+            <a class="btn btn-sm btn-outline-primary" id="class-grades-link" href="/grades">Class grades</a>
+        </c:if>
+    </div>
 
     <c:if test="${empty groups}">
         <br>

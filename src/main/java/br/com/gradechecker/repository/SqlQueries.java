@@ -25,4 +25,9 @@ public final class SqlQueries {
     public static final String CONTRIBUTORS_INSERT = Queries.get("contributors.insert");
     public static final String CONTRIBUTORS_EXISTS_BY_ID = Queries.get("contributors.existsById");
 
+    // IDENTITY_ALIASES
+    public static final String ALIASES_SELECT_BY_GROUP_ID = Queries.get("alias.findByGroupId");
+    public static final String ALIASES_SAVE = Queries.get("alias.save");
+    public static final String ALIASES_DELETE = Queries.get("alias.delete");
+
 }

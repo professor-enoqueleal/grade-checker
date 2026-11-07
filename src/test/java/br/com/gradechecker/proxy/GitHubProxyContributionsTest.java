@@ -471,4 +471,122 @@ public class GitHubProxyContributionsTest {
 
         verify(4, postRequestedFor(urlEqualTo("/graphql")));
     }
+
+    // ---------- manual associations (openspec capability identity-aliases) ----------
+
+    @Test
+    public void aliasesAreAppliedAndPartOfTheCacheKey() {
+        stubGraphQl(page(false, null,
+                commit("joaolima16", "Joao", "j@x.com", 10, 0),
+                commit(null, "joaolima", "=", 5, 0)));
+
+        ContributionsReport without = proxy.getContributionsReport(request, java.util.Map.of());
+        ContributionsReport linked = proxy.getContributionsReport(request, java.util.Map.of("name:joaolima", "joaolima16"));
+        ContributionsReport again = proxy.getContributionsReport(request, java.util.Map.of("name:joaolima", "joaolima16"));
+
+        assertEquals(2, without.getConsolidatedStats().size());
+        assertEquals(1, linked.getConsolidatedStats().size());
+        assertEquals(15, linked.getConsolidatedStats().get(0).getTotalAdditions());
+        assertSame("same aliases: cached", linked, again);
+        verify(1, postRequestedFor(urlEqualTo("/graphql"))); // new aliases reuse the cached history
+    }
+
+    // ---------- shared history and per-commit attribution (openspec capability commit-history-page) ----------
+
+    private static String full(String oid, String login, String name, String email, int additions, int parents, String date) {
+        String user = login == null ? "null" : "{\"login\":\"" + login + "\"}";
+        return "{\"oid\":\"" + oid + "\",\"message\":\"msg " + oid + "\",\"url\":\"https://github.com/octocat/hello-world/commit/" + oid + "\""
+                + ",\"committedDate\":\"" + date + "\",\"additions\":" + additions + ",\"deletions\":0"
+                + ",\"changedFilesIfAvailable\":1,\"parents\":{\"totalCount\":" + parents + "}"
+                + ",\"author\":{\"name\":\"" + name + "\",\"email\":\"" + email + "\",\"user\":" + user + "}}";
+    }
+
+    @Test
+    public void queryAsksForOidMessageAndUrl() {
+        stubGraphQl(page(false, null));
+
+        proxy.getHistory(request);
+
+        verify(postRequestedFor(urlEqualTo("/graphql"))
+                .withRequestBody(matchingJsonPath("$.query", containing("nodes { oid message url committedDate"))));
+    }
+
+    @Test
+    public void historyKeepsMergesAndTheCommitFields() {
+        stubGraphQl(page(false, null,
+                full("a1", "alice", "Alice", "a@x.com", 10, 1, "2026-03-01T14:05:00Z"),
+                full("m1", "alice", "Alice", "a@x.com", 0, 2, "2026-03-02T10:00:00Z")));
+
+        br.com.gradechecker.model.RepositoryHistory history = proxy.getHistory(request);
+
+        assertEquals(2, history.getCommits().size());
+        br.com.gradechecker.model.HistoryCommit first = history.getCommits().get(0);
+        assertEquals("a1", first.getOid());
+        assertEquals("msg a1", first.getMessage());
+        assertEquals("https://github.com/octocat/hello-world/commit/a1", first.getUrl());
+        assertEquals("2026-03-01T14:05:00Z", first.getCommittedDate());
+        assertEquals("alice", first.getAuthorLogin());
+        assertTrue(history.getCommits().get(1).isMerge());
+    }
+
+    @Test
+    public void dashboardAndCommitHistoryShareOneQueryAndAliasesNeedNoNewQuery() {
+        stubGraphQl(page(false, null,
+                full("a1", "joaolima16", "Joao", "j@x.com", 10, 1, "2026-03-01T14:05:00Z"),
+                full("b2", null, "joaolima", "=", 5, 1, "2026-03-02T14:05:00Z")));
+
+        proxy.getContributionsReport(request, java.util.Map.of());
+        proxy.getCommitHistory(request, java.util.Map.of());
+        br.com.gradechecker.model.AttributedHistory linked = proxy.getCommitHistory(request, java.util.Map.of("name:joaolima", "joaolima16"));
+
+        verify(1, postRequestedFor(urlEqualTo("/graphql")));
+        assertEquals("joaolima16", linked.getCommits().get(1).getAuthor());
+        assertEquals(br.com.gradechecker.model.AttributionSource.MANUAL, linked.getCommits().get(1).getSource());
+        assertEquals("joaolima <=>", linked.getCommits().get(1).getIdentity());
+    }
+
+    @Test
+    public void commitHistoryExcludesMergesAndAttributesLikeTheDashboard() {
+        stubGraphQl(page(false, null,
+                full("a1", "thiagofp77", "Thiago", "t@x.com", 10, 1, "2026-03-01T14:05:00Z"),
+                full("b2", null, "thiagofp77", "thiiago.fp7gmail.com", 558, 1, "2026-03-02T14:05:00Z"),
+                full("c3", null, "Thiago", "t@x.com", 3, 1, "2026-03-03T14:05:00Z"),
+                full("d4", null, "Someone", "s@x.com", 7, 1, "2026-03-04T14:05:00Z"),
+                full("m5", "thiagofp77", "Thiago", "t@x.com", 0, 2, "2026-03-05T14:05:00Z")));
+
+        br.com.gradechecker.model.AttributedHistory history = proxy.getCommitHistory(request, java.util.Map.of());
+        ContributionsReport report = proxy.getContributionsReport(request, java.util.Map.of());
+
+        assertEquals("merge excluded", 4, history.getCommits().size());
+        assertEquals(br.com.gradechecker.model.AttributionSource.ACCOUNT, history.getCommits().get(0).getSource());
+        assertNull(history.getCommits().get(0).getIdentity());
+        assertEquals(br.com.gradechecker.model.AttributionSource.SAME_NAME, history.getCommits().get(1).getSource());
+        assertEquals(br.com.gradechecker.model.AttributionSource.SAME_EMAIL, history.getCommits().get(2).getSource());
+        assertEquals(br.com.gradechecker.model.AttributionSource.NO_ACCOUNT, history.getCommits().get(3).getSource());
+        assertFalse(history.getCommits().get(3).isLinked());
+
+        // the same totals as the dashboard, author by author
+        java.util.Map<String, Long> perAuthor = new java.util.HashMap<>();
+        history.getCommits().forEach(c -> perAuthor.merge(c.getAuthor(), 1L, Long::sum));
+        for (ContributorStatsResponseBody row : report.getConsolidatedStats()) {
+            assertEquals(row.getAuthor(), Long.valueOf(row.getCommits()), perAuthor.get(row.getAuthor()));
+        }
+    }
+
+    @Test
+    public void historyErrorIsNotCached() {
+        stubFor(post(urlEqualTo("/graphql")).inScenario("h").whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
+                .willReturn(aResponse().withStatus(502)).willSetStateTo("ok"));
+        stubFor(post(urlEqualTo("/graphql")).inScenario("h").whenScenarioStateIs("ok")
+                .willReturn(okJson(page(false, null, full("a1", "alice", "Alice", "a@x.com", 1, 1, "2026-03-01T14:05:00Z")))));
+
+        try {
+            proxy.getCommitHistory(request, java.util.Map.of());
+            fail("expected GitHubApiException");
+        } catch (GitHubApiException expected) {
+            // not cached
+        }
+        assertEquals(1, proxy.getCommitHistory(request, java.util.Map.of()).getCommits().size());
+        verify(2, postRequestedFor(urlEqualTo("/graphql")));
+    }
 }

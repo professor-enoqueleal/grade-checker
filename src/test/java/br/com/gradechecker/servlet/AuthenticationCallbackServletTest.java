@@ -1,7 +1,10 @@
 package br.com.gradechecker.servlet;
 
 import br.com.gradechecker.model.AccessToken;
+import br.com.gradechecker.config.AdminConfig;
 import br.com.gradechecker.proxy.AuthenticationProxy;
+import br.com.gradechecker.proxy.GitHubApiException;
+import br.com.gradechecker.proxy.GitHubUserProxy;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +37,11 @@ public class AuthenticationCallbackServletTest {
     private HttpSession session;
     private RequestDispatcher loginPage;
     private final Map<String, Object> sessionAttributes = new HashMap<>();
+    private GitHubUserProxy userProxy;
+
+    private AuthenticationCallbackServlet servlet(AuthenticationProxy proxy) {
+        return new AuthenticationCallbackServlet(proxy, userProxy);
+    }
 
     @Before
     public void setUp() {
@@ -41,6 +49,8 @@ public class AuthenticationCallbackServletTest {
         response = mock(HttpServletResponse.class);
         session = mock(HttpSession.class);
         loginPage = mock(RequestDispatcher.class);
+        userProxy = mock(GitHubUserProxy.class);
+        when(userProxy.fetchLogin(anyString())).thenReturn("alice");
 
         when(request.getRequestDispatcher("/authentication.jsp")).thenReturn(loginPage);
         when(request.getSession()).thenReturn(session);
@@ -70,13 +80,31 @@ public class AuthenticationCallbackServletTest {
         AuthenticationProxy proxy = mock(AuthenticationProxy.class);
         when(proxy.exchangeCodePerToken("CODE")).thenReturn(token("ghu_ok"));
 
-        new AuthenticationCallbackServlet(proxy).doGet(request, response);
+        servlet(proxy).doGet(request, response);
 
         InOrder order = inOrder(request, session, response);
         order.verify(request).changeSessionId();
         order.verify(session).setAttribute("accessToken", "ghu_ok");
         order.verify(response).sendRedirect("/home");
         assertFalse("state is single use", sessionAttributes.containsKey(GitHubLoginServlet.STATE_ATTRIBUTE));
+        assertEquals("alice", sessionAttributes.get(AdminConfig.USER_LOGIN_ATTRIBUTE));
+        verify(userProxy).fetchLogin("ghu_ok");
+    }
+
+    @Test
+    public void failureToIdentifyTheUserFailsTheSignIn() throws Exception {
+        sessionAttributes.put(GitHubLoginServlet.STATE_ATTRIBUTE, "S1");
+        callback("CODE", "S1");
+        AuthenticationProxy proxy = mock(AuthenticationProxy.class);
+        when(proxy.exchangeCodePerToken("CODE")).thenReturn(token("ghu_ok"));
+        when(userProxy.fetchLogin("ghu_ok")).thenThrow(new GitHubApiException(502, GitHubApiException.ERROR, "down"));
+
+        servlet(proxy).doGet(request, response);
+
+        verify(request).setAttribute("message", AuthenticationCallbackServlet.FAILED);
+        verify(session, never()).setAttribute(eq("accessToken"), any());
+        verify(request, never()).changeSessionId();
+        verify(response, never()).sendRedirect(anyString());
     }
 
     @Test
@@ -86,7 +114,7 @@ public class AuthenticationCallbackServletTest {
             callback("CODE", state);
             AuthenticationProxy proxy = mock(AuthenticationProxy.class);
 
-            new AuthenticationCallbackServlet(proxy).doGet(request, response);
+            servlet(proxy).doGet(request, response);
 
             verifyNoInteractions(proxy);
             verify(request, atLeastOnce()).setAttribute("message", AuthenticationCallbackServlet.NOT_VERIFIED);
@@ -100,7 +128,7 @@ public class AuthenticationCallbackServletTest {
         callback("CODE", "S1");
         AuthenticationProxy proxy = mock(AuthenticationProxy.class);
 
-        new AuthenticationCallbackServlet(proxy).doGet(request, response);
+        servlet(proxy).doGet(request, response);
 
         verifyNoInteractions(proxy);
         verify(request).setAttribute("message", AuthenticationCallbackServlet.NOT_VERIFIED);
@@ -112,7 +140,7 @@ public class AuthenticationCallbackServletTest {
         callback("CODE", "S1");
         AuthenticationProxy proxy = mock(AuthenticationProxy.class);
         when(proxy.exchangeCodePerToken("CODE")).thenReturn(token("ghu_ok"));
-        AuthenticationCallbackServlet servlet = new AuthenticationCallbackServlet(proxy);
+        AuthenticationCallbackServlet servlet = servlet(proxy);
 
         servlet.doGet(request, response);
         servlet.doGet(request, response); // same URL again
@@ -126,7 +154,7 @@ public class AuthenticationCallbackServletTest {
         callback(null, null);
         when(request.getParameter("error_description")).thenReturn("The user has denied your application access.");
 
-        new AuthenticationCallbackServlet(mock(AuthenticationProxy.class)).doGet(request, response);
+        servlet(mock(AuthenticationProxy.class)).doGet(request, response);
 
         verify(request).setAttribute("message", "The user has denied your application access.");
         verify(loginPage).forward(request, response);
@@ -144,7 +172,7 @@ public class AuthenticationCallbackServletTest {
                 when(proxy.exchangeCodePerToken("CODE")).thenReturn(null); // e.g. expired code
             }
 
-            new AuthenticationCallbackServlet(proxy).doGet(request, response);
+            servlet(proxy).doGet(request, response);
 
             verify(session, never()).setAttribute(eq("accessToken"), any());
             verify(response, never()).sendRedirect(anyString());

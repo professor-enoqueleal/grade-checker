@@ -9,8 +9,10 @@ public final class GitHubOAuthConfig {
     public static final String BASE_URL = "GITHUB_BASE_URL";
     public static final String CLIENT_ID = "GITHUB_CLIENT_ID";
     public static final String CLIENT_SECRET = "GITHUB_CLIENT_SECRET";
+    public static final String API_URL = "GITHUB_API_URL";
 
     private static final String DEFAULT_BASE_URL = "https://github.com";
+    private static final String DEFAULT_API_URL = "https://api.github.com";
 
     private GitHubOAuthConfig() {
     }
@@ -19,6 +21,13 @@ public final class GitHubOAuthConfig {
     public static String baseUrl() {
         String value = read(BASE_URL);
         if (value == null) return DEFAULT_BASE_URL;
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    }
+
+    /** REST API root, e.g. https://api.github.com (never ends with "/"); used for GET /user at sign-in. */
+    public static String apiUrl() {
+        String value = read(API_URL);
+        if (value == null) return DEFAULT_API_URL;
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 

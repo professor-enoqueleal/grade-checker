@@ -1,14 +1,27 @@
-DROP TABLE IF EXISTS USR_SESSION;
+-- Grade Checker schema and seed data (openspec capability database-bootstrap).
+-- Runs at EVERY startup and MUST be idempotent: never DROP/DELETE/TRUNCATE.
+--   * new tables: CREATE TABLE IF NOT EXISTS (in foreign key order);
+--   * new columns: ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...;
+--   * seeds: INSERT ... SELECT ... WHERE NOT EXISTS (never change existing rows).
 
+DROP TABLE IF EXISTS USR_SESSION;
 DROP TABLE IF EXISTS MEMBERS;
 DROP TABLE IF EXISTS CONTRIBUTORS;
+DROP TABLE IF EXISTS IDENTITY_ALIASES;
 DROP TABLE IF EXISTS GROUPS;
 
 --CREATE TABLE USR_SESSION(ID INT PRIMARY KEY AUTO_INCREMENT, ACCESS_TOKEN VARCHAR(255));
-CREATE TABLE GROUPS(ID INT PRIMARY KEY AUTO_INCREMENT, NAME VARCHAR(255), REPOSITORY_URL VARCHAR(255), REPOSITORY_OWNER VARCHAR(255), REPOSITORY_NAME VARCHAR(255), REPOSITORY_PRIVATE BOOLEAN DEFAULT FALSE);
+CREATE TABLE IF NOT EXISTS GROUPS(
+    ID INT PRIMARY KEY AUTO_INCREMENT,
+    NAME VARCHAR(255),
+    REPOSITORY_URL VARCHAR(255),
+    REPOSITORY_OWNER VARCHAR(255),
+    REPOSITORY_NAME VARCHAR(255),
+    REPOSITORY_PRIVATE BOOLEAN DEFAULT FALSE
+);
 
 -- create CONTRIBUTORS before MEMBERS so we can reference CONTRIBUTORS from MEMBERS
-CREATE TABLE CONTRIBUTORS(
+CREATE TABLE IF NOT EXISTS CONTRIBUTORS(
     ID INT PRIMARY KEY,
     LOGIN VARCHAR(255),
     AVATAR_URL VARCHAR(255),
@@ -19,7 +32,7 @@ CREATE TABLE CONTRIBUTORS(
     UNIQUE (LOGIN, GROUP_ID)
 );
 
-CREATE TABLE MEMBERS(
+CREATE TABLE IF NOT EXISTS MEMBERS(
     ID INT PRIMARY KEY AUTO_INCREMENT,
     NAME VARCHAR(255),
     GITHUB_USERNAME VARCHAR(255),
@@ -30,6 +43,19 @@ CREATE TABLE MEMBERS(
     FOREIGN KEY (GROUP_ID) REFERENCES GROUPS (ID),
     FOREIGN KEY (GITHUB_ID) REFERENCES CONTRIBUTORS (ID),
     UNIQUE (GITHUB_USERNAME, GROUP_ID)
+);
+
+-- manual association of a git identity without account to a login of the group (openspec capability identity-aliases)
+-- IDENTITY_KEY: "email:<normalized e-mail>" or "name:<normalized git name>"
+CREATE TABLE IF NOT EXISTS IDENTITY_ALIASES(
+    ID INT PRIMARY KEY AUTO_INCREMENT,
+    GROUP_ID INT NOT NULL,
+    IDENTITY_KEY VARCHAR(512) NOT NULL,
+    LOGIN VARCHAR(255) NOT NULL,
+    CREATED_BY VARCHAR(255),
+    CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (GROUP_ID) REFERENCES GROUPS (ID),
+    UNIQUE (GROUP_ID, IDENTITY_KEY)
 );
 
 --# | name | url | owner | repo
@@ -45,16 +71,17 @@ CREATE TABLE MEMBERS(
 --INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('quotation', 'https://github.com/roMMarinho/Quotation', 'roMMarinho', 'Quotation');
 --INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('little-market', 'https://github.com/PIbnz/little-market', 'PIbnz', 'little-market');
 
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('projeto-chamados', 'https://github.com/Saacbs/Projeto-Chamados', 'Saacbs', 'projeto-chamados');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('sensei-dev', 'https://github.com/VitorConrado04/sensei-dev', 'VitorConrado04', 'sensei-dev');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('clinica', 'https://github.com/Hugodev0711/clinica-pi', 'Hugodev0711', 'clinica-pi');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('nonna-pizza', 'https://github.com/rulckus/nonna-pizza', 'rulckus', 'nonna-pizza');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('conversor-estoque-xml', 'https://github.com/GuilhermeMeloGS/conversor-estoque-xml', 'GuilhermeMeloGS', 'conversor-estoque-xml');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('cannamed', 'https://github.com/LucasMoura-dev777/cannamed', 'LucasMoura-dev777', 'cannamed');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('sistema-gestao-funcionarios', 'https://github.com/Renan7Erick/sistema-gestao-funcionarios', 'Renan7Erick', 'sistema-gestao-funcionarios');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('locacaoquadras', 'https://github.com/pedfaroh-bit/locacaoquadras', 'pedfaroh-bit', 'locacaoquadras');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('plataforma-amis', 'https://github.com/amanda-pedreira/Plataforma-Amis', 'amanda-pedreira', 'plataforma-amis');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('reelbook', 'https://github.com/itscuds/reelbook', 'itscuds', 'reelbook');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('biblioteca-virtual', 'https://github.com/Melibanio/biblioteca-virtual', 'Melibanio', 'biblioteca-virtual');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('livraria-lexxis', 'https://github.com/FelipeZx405/livraria-lexxis', 'FelipeZx405', 'livraria-lexxis');
-INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) VALUES ('eventhub', 'https://github.com/gabrielrgtx/eventhub', 'gabrielrgtx', 'eventhub');
+-- seed groups: inserted only when no group has the same REPOSITORY_URL
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'projeto-chamados', 'https://github.com/Saacbs/Projeto-Chamados', 'Saacbs', 'projeto-chamados' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/Saacbs/Projeto-Chamados');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'sensei-dev', 'https://github.com/VitorConrado04/sensei-dev', 'VitorConrado04', 'sensei-dev' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/VitorConrado04/sensei-dev');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'clinica', 'https://github.com/Hugodev0711/clinica-pi', 'Hugodev0711', 'clinica-pi' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/Hugodev0711/clinica-pi');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'nonna-pizza', 'https://github.com/rulckus/nonna-pizza', 'rulckus', 'nonna-pizza' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/rulckus/nonna-pizza');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'conversor-estoque-xml', 'https://github.com/GuilhermeMeloGS/conversor-estoque-xml', 'GuilhermeMeloGS', 'conversor-estoque-xml' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/GuilhermeMeloGS/conversor-estoque-xml');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'cannamed', 'https://github.com/LucasMoura-dev777/cannamed', 'LucasMoura-dev777', 'cannamed' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/LucasMoura-dev777/cannamed');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'sistema-gestao-funcionarios', 'https://github.com/Renan7Erick/sistema-gestao-funcionarios', 'Renan7Erick', 'sistema-gestao-funcionarios' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/Renan7Erick/sistema-gestao-funcionarios');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'locacaoquadras', 'https://github.com/pedfaroh-bit/locacaoquadras', 'pedfaroh-bit', 'locacaoquadras' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/pedfaroh-bit/locacaoquadras');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'plataforma-amis', 'https://github.com/amanda-pedreira/Plataforma-Amis', 'amanda-pedreira', 'plataforma-amis' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/amanda-pedreira/Plataforma-Amis');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'reelbook', 'https://github.com/itscuds/reelbook', 'itscuds', 'reelbook' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/itscuds/reelbook');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'biblioteca-virtual', 'https://github.com/Melibanio/biblioteca-virtual', 'Melibanio', 'biblioteca-virtual' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/Melibanio/biblioteca-virtual');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'livraria-lexxis', 'https://github.com/FelipeZx405/livraria-lexxis', 'FelipeZx405', 'livraria-lexxis' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/FelipeZx405/livraria-lexxis');
+--INSERT INTO GROUPS (NAME, REPOSITORY_URL, REPOSITORY_OWNER, REPOSITORY_NAME) SELECT 'eventhub', 'https://github.com/gabrielrgtx/eventhub', 'gabrielrgtx', 'eventhub' WHERE NOT EXISTS (SELECT 1 FROM GROUPS WHERE REPOSITORY_URL = 'https://github.com/gabrielrgtx/eventhub');

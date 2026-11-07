@@ -1,5 +1,6 @@
 package br.com.gradechecker.servlet;
 
+import br.com.gradechecker.config.AdminConfig;
 import br.com.gradechecker.model.Group;
 import br.com.gradechecker.repository.GroupRepository;
 import jakarta.servlet.RequestDispatcher;
@@ -32,6 +33,9 @@ public class HomeServlet extends HttpServlet {
         List<Group> groups = groupRepository.findAll();
 
         httpServletRequest.setAttribute("groups", groups);
+
+        // link "Class grades" only for administrators (openspec capability class-gradebook)
+        httpServletRequest.setAttribute("isAdmin", AdminConfig.isAdmin(httpServletRequest.getSession(false)));
 
         RequestDispatcher requestDispatcher = httpServletRequest.getRequestDispatcher("home.jsp");
 

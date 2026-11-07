@@ -2,7 +2,9 @@ package br.com.gradechecker.servlet;
 
 import br.com.gradechecker.config.AdminConfig;
 import br.com.gradechecker.config.GradingConfig;
+import br.com.gradechecker.config.Milestones;
 import br.com.gradechecker.model.Group;
+import br.com.gradechecker.model.GradingExplanation;
 import br.com.gradechecker.model.GroupCard;
 import br.com.gradechecker.repository.MemberRepository;
 import br.com.gradechecker.service.GroupService;
@@ -54,6 +56,8 @@ public class GroupDetailServlet extends HttpServlet {
         // botões de período do dashboard (primeira carga em All)
         httpServletRequest.setAttribute("periodOptions", periodResolver.options(PeriodResolver.ALL));
         httpServletRequest.setAttribute("customUntil", periodResolver.toInputValue(periodResolver.all().getUntil()));
+        // "Como as notas são calculadas" box, for every user (openspec capability milestone-grading)
+        httpServletRequest.setAttribute("gradingExplanation", GradingExplanation.of(grading, Milestones.fromClasspath()));
 
         // manual association of identities (openspec capability identity-aliases): administrators only
         boolean admin = AdminConfig.isAdmin(httpServletRequest.getSession(false));

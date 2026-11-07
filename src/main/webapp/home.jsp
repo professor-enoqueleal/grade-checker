@@ -18,19 +18,20 @@
 
 <main class="container">
     <br>
-    <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item active"><a href="/home">Home</a></li>
-      </ol>
-    </nav>
+    <%-- breadcrumb on the left; "Class grades" (administrators, openspec capability class-gradebook) on the right --%>
+    <div class="d-flex justify-content-between align-items-center mb-3" id="home-navigation">
+      <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item active"><a href="/home">Home</a></li>
+        </ol>
+      </nav>
+      <c:if test="${isAdmin}">
+        <a id="class-grades-link" href="/grades">Class grades</a>
+      </c:if>
+    </div>
     <hr>
 
-    <div class="d-flex justify-content-between align-items-center">
-        <h4>Groups</h4>
-        <c:if test="${isAdmin}">
-            <a class="btn btn-sm btn-outline-primary" id="class-grades-link" href="/grades">Class grades</a>
-        </c:if>
-    </div>
+    <h4>Groups</h4>
 
     <c:if test="${empty groups}">
         <br>

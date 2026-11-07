@@ -85,7 +85,11 @@ nb-configuration.xml
 .DS_Store
 .idea
 
+##############################
+## Local folders (not part of the project)
+##############################
 .no-commit/
+.to-move/
 
 ##############################
 ## E2E (Playwright)
@@ -95,3 +99,6 @@ e2e/test-results/
 e2e/playwright-report/
 e2e/.auth/
 e2e/.tmp/
+
+# local secrets for docker run --env-file
+.env.local

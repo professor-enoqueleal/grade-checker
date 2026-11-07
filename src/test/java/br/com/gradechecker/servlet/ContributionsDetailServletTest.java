@@ -121,6 +121,31 @@ public class ContributionsDetailServletTest {
     }
 
     @Test
+    public void frequencyChartUsesTheSameCommitsAsTheTable() throws Exception {
+        history(false,
+                commit("a1", "m", null, "alice", true, AttributionSource.ACCOUNT, null),
+                commit("b1", "m", null, "bob", true, AttributionSource.ACCOUNT, null),      // not counted for alice
+                commit("a2", "m", null, "alice", true, AttributionSource.SAME_NAME, "alice <alice.gmail.com>"));
+
+        servlet.doGet(request, response);
+
+        br.com.gradechecker.model.CommitActivity activity = attribute("commitActivity");
+        assertEquals(2, activity.getTotal());                  // = Total of commits
+        assertEquals(1, activity.getActiveDays());
+        assertEquals("day", activity.getGranularity());          // All: from the first commit (01/09) to today (01/09)
+        String json = attribute("commitActivityJson");
+        assertTrue(json.contains("\"total\":2"));
+    }
+
+    @Test
+    public void noCommitsNoFrequencyChart() throws Exception {
+        history(false);
+        servlet.doGet(request, response);
+        assertNull(attribute("commitActivity"));
+        assertNull(attribute("commitActivityJson"));
+    }
+
+    @Test
     public void identitiesOfUnlinkedCommitsAreShownAndListedOnceInOrder() throws Exception {
         history(false,
                 commit("a1", "m", null, "alice", true, AttributionSource.SAME_NAME, "alice <alice.gmail.com>"),

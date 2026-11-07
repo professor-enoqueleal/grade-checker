@@ -6,7 +6,7 @@
     <script src="/webjars/jquery/3.7.1/jquery.min.js"></script>
     <script src="/webjars/bootstrap/5.3.0/js/bootstrap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="/js/date-formatting.js"></script>
     <meta charset="UTF-8">
     <title>Grade Checker | Group Detail</title>
@@ -35,6 +35,21 @@
 
         .contributions-table {
             margin-top: 0.5rem;
+        }
+
+        /* bar charts (openspec change graficos-e-explicacao-da-nota): the height follows the number of bars */
+        .chart-box {
+            position: relative;
+            width: 100%;
+            min-height: 160px;
+        }
+
+        /* "Como as notas são calculadas" (pt-BR, for the students) */
+        #grading-explanation h6 {
+            margin-top: 1rem;
+        }
+        #grading-explanation ul {
+            margin-bottom: 0.5rem;
         }
 
     </style>
@@ -240,19 +255,89 @@
     </div>
 
 
+    <%-- bar charts, filled by the dashboard script per period (openspec change graficos-e-explicacao-da-nota):
+         grades (All and milestones, students only) above, lines changed (every period, every author) below --%>
     <div class="row">
-
-        <div class="col-3"></div>
-
-        <div class="col-6">
-            <canvas id="contributorPierChart"></canvas>
+        <div class="col-12 mb-4 d-none" id="grades-chart-section">
+            <h6 id="grades-chart-title"></h6>
+            <div class="chart-box" id="grades-chart-box">
+                <canvas id="grades-chart" role="img"></canvas>
+            </div>
         </div>
-
-        <div class="col-3"></div>
-
+        <div class="col-12 mb-4 d-none" id="lines-chart-section">
+            <h6 id="lines-chart-title">Lines changed (additions + deletions)</h6>
+            <div class="chart-box" id="lines-chart-box">
+                <canvas id="lines-chart" role="img" aria-label="Lines changed (additions + deletions)"></canvas>
+            </div>
+        </div>
     </div>
 
     <!-- ajax content end here -->
+
+    <%-- how grades are calculated, for every user. Written in Portuguese for the students (exception to the English
+         interface); every number comes from grading.properties / milestones.properties (openspec capability milestone-grading) --%>
+    <c:set var="gx" value="${gradingExplanation}"/>
+    <section class="card mb-5" id="grading-explanation" lang="pt-BR" aria-labelledby="grading-explanation-title">
+        <div class="card-body">
+            <h5 class="card-title" id="grading-explanation-title">Como as notas são calculadas</h5>
+            <p class="mb-0">Esta explicação vale para todos os grupos. Os números abaixo são os que estão em uso no sistema.</p>
+
+            <h6>Marcos</h6>
+            <ul id="grading-explanation-milestones">
+                <c:forEach var="m" items="${gx.milestones}">
+                    <li><c:out value="${m.label}"/>: de <c:out value="${m.start}"/> a <c:out value="${m.end}"/></li>
+                </c:forEach>
+            </ul>
+            <p>Cada marco vale de 0 a <c:out value="${gx.maxPoints}"/> pontos, e o total vai de 0 a <c:out value="${gx.totalPoints}"/>
+                (coluna &ldquo;Total&rdquo; no período &ldquo;All&rdquo;). Enquanto um marco não termina, a nota dele é provisória
+                e aparece com &ldquo;(in progress)&rdquo;: ela ainda pode mudar.</p>
+
+            <h6>Quem recebe nota e quais commits contam</h6>
+            <ul>
+                <li>Recebem nota os membros do grupo, cadastrados pelo professor.</li>
+                <li>Um commit conta para você quando o e-mail configurado no git é um e-mail da sua conta do GitHub. Commits feitos
+                    com outro e-mail aparecem na tabela como &ldquo;No GitHub account&rdquo; e não contam para ninguém, a menos que
+                    o professor associe essa identidade a você.</li>
+                <li>Commits de merge não contam. Contas de bots<c:if test="${gx.excludesLogins}"> e a conta do professor</c:if> não recebem nota.</li>
+            </ul>
+
+            <h6>Os três fatores</h6>
+            <ul id="grading-explanation-factors">
+                <li><strong>Linhas efetivas (peso <c:out value="${gx.weightEffectiveLines}"/>):</strong> adições + remoções de cada
+                    commit, contando no máximo <c:out value="${gx.lineCap}"/> linhas por commit. Commits que apenas movem ou renomeiam
+                    muitos arquivos (<c:out value="${gx.reorganizationMinFiles}"/> arquivos ou mais, com adições e remoções
+                    equilibradas, a menor sendo pelo menos <c:out value="${gx.reorganizationBalance}"/> da maior) contam só
+                    <c:out value="${gx.reorganizationFactor}"/> das linhas.</li>
+                <li><strong>Dias ativos (peso <c:out value="${gx.weightActiveDays}"/>):</strong> quantidade de dias diferentes em que
+                    você fez commits no marco (<c:out value="${gx.timeZone}"/>).</li>
+                <li><strong>Commits relevantes (peso <c:out value="${gx.weightRelevantCommits}"/>):</strong> commits com pelo menos
+                    <c:out value="${gx.relevantCommitMinLines}"/> linhas alteradas.</li>
+            </ul>
+
+            <h6>Da participação à nota</h6>
+            <ul>
+                <li>Em cada fator, a sua participação é a sua parte no total dos alunos do grupo. A soma dessas participações,
+                    com os pesos acima, é a sua participação no índice.</li>
+                <li>A parte justa é 1 dividido pelo número de alunos do grupo. Quem atinge pelo menos
+                    <c:out value="${gx.tolerance}"/> da parte justa recebe a nota máxima do marco (<c:out value="${gx.maxPoints}"/>).
+                    Abaixo disso, a nota é proporcional.</li>
+                <li id="grading-explanation-example">Exemplo: num grupo de <c:out value="${gx.exampleStudents}"/> alunos, a parte justa é
+                    <c:out value="${gx.exampleFairShare}"/>. Quem tem <c:out value="${gx.exampleFullShare}"/> ou mais do índice recebe
+                    <c:out value="${gx.exampleFullGrade}"/>; quem tem <c:out value="${gx.exampleLowShare}"/> recebe
+                    <c:out value="${gx.exampleLowGrade}"/>.</li>
+                <li>Na tabela, passe o mouse sobre a sua nota para ver os seus números: linhas efetivas, dias ativos, commits
+                    relevantes e participação.</li>
+            </ul>
+
+            <h6>Dicas</h6>
+            <ul class="mb-0">
+                <li>Faça commits com frequência, em dias diferentes, e não tudo de uma vez no fim do marco.</li>
+                <li>Prefira commits pequenos e com sentido: um commit gigante conta no máximo <c:out value="${gx.lineCap}"/> linhas.</li>
+                <li>Configure o git com o e-mail da sua conta do GitHub:
+                    <code>git config --global user.email "seu-email@exemplo.com"</code></li>
+            </ul>
+        </div>
+    </section>
 
 </main>
 
@@ -287,7 +372,8 @@
 
 <script>
         // Dashboard de contribuições (openspec/changes/corrigir-dashboard-contribuicoes)
-        let contributorChart = null;
+        let gradesChart = null;
+        let linesChart = null;
         let groupContributors = []; // logins renderizados pelo servidor, lidos uma vez ao carregar a página
 
         function showAlert(type, text) {
@@ -513,48 +599,156 @@
             $("#contributions-section").removeClass("d-none");
         }
 
-        function drawChart(stats) {
-            if (contributorChart) {
-                contributorChart.destroy();
-                contributorChart = null;
-            }
+        // ---------------- bar charts (openspec change graficos-e-explicacao-da-nota) ----------------
 
-            const canvas = document.getElementById('contributorPierChart');
-            const total = stats.reduce(function (sum, s) { return sum + s.totalAdditions + s.totalDeletions; }, 0);
+        // one color per series, never reused across the two charts: milestones are an ordered blue ramp
+        // (M1 light -> M3 dark), lines changed are orange / violet (palette validated for color vision deficiency)
+        const CHART_COLORS = {
+            m1: "#86b6ef", m2: "#3987e5", m3: "#1c5cab",
+            additions: "#eb6834", deletions: "#6250d6"
+        };
+        const CHART_SURFACE = "#ffffff";   // 2px gap between stacked segments
 
-            if (stats.length === 0 || total === 0) {
-                $(canvas).addClass("d-none");
-                showAlert("info", "No contributions found in this period.");
-                return;
-            }
+        function destroyCharts() {
+            if (gradesChart) { gradesChart.destroy(); gradesChart = null; }
+            if (linesChart) { linesChart.destroy(); linesChart = null; }
+            $("#grades-chart-section, #lines-chart-section").addClass("d-none");
+        }
 
-            $(canvas).removeClass("d-none");
+        // 40px per bar plus room for the axis and the legend, at least 160px
+        function chartHeight(bars, legend) {
+            return Math.max(160, bars * 40 + (legend ? 80 : 50));
+        }
 
-            contributorChart = new Chart(canvas.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: stats.map(function (s) { return s.author; }),
-                    datasets: [{
-                        data: stats.map(function (s) { return s.totalAdditions + s.totalDeletions; }),
-                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'],
-                        hoverBackgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
-                    }]
-                },
+        // round only the end of the last (non-empty) segment of each bar
+        function barEndRadius(datasetCount) {
+            return function (ctx) {
+                const chart = ctx.chart;
+                for (let d = datasetCount - 1; d > ctx.datasetIndex; d--) {
+                    const v = chart.data.datasets[d].data[ctx.dataIndex];
+                    if (v !== null && v !== undefined && v > 0 && chart.isDatasetVisible(d)) return 0;
+                }
+                return { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 };
+            };
+        }
+
+        function barDataset(label, values, color, datasetCount) {
+            return {
+                label: label,
+                data: values,
+                backgroundColor: color,
+                hoverBackgroundColor: color,
+                borderColor: CHART_SURFACE,
+                borderWidth: { top: 0, bottom: 0, left: 0, right: 2 },
+                borderSkipped: false,
+                borderRadius: barEndRadius(datasetCount),
+                maxBarThickness: 18
+            };
+        }
+
+        function barChart(canvasId, labels, datasets, max, tooltip) {
+            const legend = datasets.length > 1;
+            $("#" + canvasId + "-box").css("height", chartHeight(labels.length, legend) + "px");
+            return new Chart(document.getElementById(canvasId).getContext("2d"), {
+                type: "bar",
+                data: { labels: labels, datasets: datasets },
                 options: {
+                    indexAxis: "y",
                     responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { stacked: true, min: 0, max: max, grid: { color: "#e9ecef" }, border: { display: false },
+                             ticks: { color: "#6c757d", precision: 0 } },
+                        y: { stacked: true, grid: { display: false }, border: { display: false },
+                             ticks: { color: "#212529", callback: function (value) { return shortLabel(this.getLabelForValue(value), this.chart.width); } } }
+                    },
                     plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: function (item) {
-                                    const s = stats[item.dataIndex];
-                                    return (s.totalAdditions + s.totalDeletions) + ' lines changed (' + Number(s.percentage).toFixed(2) + '%)';
-                                }
-                            }
-                        }
+                        legend: { display: legend, position: "bottom", labels: { boxWidth: 12, boxHeight: 12 } },
+                        tooltip: tooltip
                     }
                 }
             });
+        }
+
+        // long author names (e.g. "PAULO HENRIQUE DE MORAES DORNELAS (no account)") are shortened with "…" on narrow
+        // charts, so the bars keep their room; the tooltip shows the full name
+        function shortLabel(label, chartWidth) {
+            const max = chartWidth < 576 ? 16 : 36;
+            return label.length > max ? label.substring(0, max - 1) + "…" : label;
+        }
+
+        function formatPoints(value) {
+            return Number(value).toFixed(2);
+        }
+
+        // grades: All -> M1 + M2 + M3 stacked (0 to 3 x maxPoints); milestone -> its grade (0 to maxPoints); students only
+        function drawGradesChart(stats, data) {
+            const g = data.grading;
+            const period = data.period || "";
+            if (!g || !(period === "all" || period.startsWith("m"))) return;
+            const max = g.maxPoints || 3;
+
+            let rows, datasets, title;
+            if (period === "all") {
+                rows = stats.filter(function (s) { return s.total !== null && s.total !== undefined; });
+                const provisional = g.provisionalMilestones || [];
+                const keys = ["m1", "m2", "m3"];
+                datasets = keys.map(function (key, i) {
+                    return barDataset("M" + (i + 1) + (provisional.indexOf(key) >= 0 ? " (in progress)" : ""),
+                        rows.map(function (s) { return s.milestoneGrades ? s.milestoneGrades[key] : null; }),
+                        CHART_COLORS[key], keys.length);
+                });
+                title = "Grades by milestone (0–" + formatMax(max * keys.length) + ")";
+            } else {
+                rows = stats.filter(function (s) { return s.grade !== null && s.grade !== undefined; });
+                datasets = [barDataset("Grade", rows.map(function (s) { return s.grade; }), CHART_COLORS[period] || CHART_COLORS.m2, 1)];
+                title = "Milestone " + period.substring(1) + " grade (0–" + formatMax(max) + ")" + (g.provisional ? " (in progress)" : "");
+            }
+            if (rows.length === 0) return;   // nobody has a grade: no members, or no milestone started yet
+
+            $("#grades-chart-title").text(title);
+            $("#grades-chart").attr("aria-label", title);
+            $("#grades-chart-section").removeClass("d-none");
+            gradesChart = barChart("grades-chart", rows.map(function (s) { return s.author; }),
+                datasets, period === "all" ? max * 3 : max, {
+                    callbacks: {
+                        label: function (item) { return item.dataset.label + ": " + formatPoints(item.raw); }
+                    }
+                });
+        }
+
+        function formatMax(value) {
+            return Number.isInteger(value) ? String(value) : Number(value).toFixed(1);
+        }
+
+        // lines changed: additions + deletions stacked, every author of the response, in every period
+        function drawLinesChart(stats) {
+            const total = stats.reduce(function (sum, s) { return sum + s.totalAdditions + s.totalDeletions; }, 0);
+            if (stats.length === 0 || total === 0) {
+                showAlert("info", "No contributions found in this period.");
+                return;
+            }
+            const labels = stats.map(function (s) { return s.author + (s.linked === false ? " (no account)" : ""); });
+            $("#lines-chart-section").removeClass("d-none");
+            linesChart = barChart("lines-chart", labels, [
+                barDataset("Additions", stats.map(function (s) { return s.totalAdditions; }), CHART_COLORS.additions, 2),
+                barDataset("Deletions", stats.map(function (s) { return s.totalDeletions; }), CHART_COLORS.deletions, 2)
+            ], undefined, {
+                callbacks: {
+                    label: function (item) { return item.dataset.label + ": " + item.raw; },
+                    footer: function (items) {
+                        const s = stats[items[0].dataIndex];
+                        return (s.totalAdditions + s.totalDeletions) + " lines (" + Number(s.percentage).toFixed(2) + "%)";
+                    }
+                }
+            });
+        }
+
+        function drawCharts(stats, data) {
+            destroyCharts();
+            drawGradesChart(stats, data);
+            drawLinesChart(stats);
         }
 
         let selectedPeriod = "all";
@@ -597,7 +791,7 @@
 
                 fillTable(stats, gradeColumns(data));
                 showGradingNotice(data);
-                drawChart(stats);
+                drawCharts(stats, data);
 
                 if (data.truncated) {
                     showAlert("warning", "Only the " + data.totalCommits + " most recent commits in this period were considered (configured limit).");
@@ -607,6 +801,7 @@
                 const body = error.response && error.response.data;
                 const message = body && body.message ? body.message : "Could not load the dashboard. Please try again.";
                 $("#contributions-section").addClass("d-none"); // não exibir dados de uma carga anterior junto do erro
+                destroyCharts();
                 showAlert("danger", message);
                 console.error("Error loading contributions dashboard:", error);
             })

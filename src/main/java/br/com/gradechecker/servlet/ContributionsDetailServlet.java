@@ -3,6 +3,7 @@ package br.com.gradechecker.servlet;
 import br.com.gradechecker.model.AttributedCommit;
 import br.com.gradechecker.model.AttributedHistory;
 import br.com.gradechecker.model.AttributionSource;
+import br.com.gradechecker.model.CommitActivity;
 import br.com.gradechecker.model.CommitRequestBody;
 import br.com.gradechecker.model.CommitRow;
 import br.com.gradechecker.model.HistoryCommit;
@@ -11,6 +12,7 @@ import br.com.gradechecker.proxy.GitHubProxy;
 import br.com.gradechecker.repository.IdentityAliasRepository;
 import br.com.gradechecker.service.PeriodResolver;
 import br.com.gradechecker.service.PeriodResolver.ResolvedPeriod;
+import com.google.gson.Gson;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -18,6 +20,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -35,6 +40,7 @@ public class ContributionsDetailServlet extends HttpServlet {
     private final GitHubProxy gitHubProxy;
     private final PeriodResolver periodResolver;
     private final Function<Long, Map<String, String>> aliasesByGroup;
+    private final Gson gson = new Gson();   // escapes < and >: safe inside <script type="application/json">
 
     public ContributionsDetailServlet() {
         this(new GitHubProxy(), new PeriodResolver(), new IdentityAliasRepository()::findByGroupId);
@@ -82,6 +88,7 @@ public class ContributionsDetailServlet extends HttpServlet {
                 repo, owner, author, period.getSinceIso(), period.getUntilIso(), accessToken, groupId);
 
         List<CommitRow> rows = new ArrayList<>();
+        List<Instant> commitDates = new ArrayList<>();   // same commits as the table, for the frequency chart
         Map<String, Boolean> alsoCounted = new LinkedHashMap<>(); // identity -> manual
         boolean truncated = false;
 
@@ -94,6 +101,8 @@ public class ContributionsDetailServlet extends HttpServlet {
                 if (!isCountedFor(commit, author)) continue;
                 boolean manual = commit.getSource() == AttributionSource.MANUAL;
                 rows.add(toRow(commit, manual));
+                Instant date = instant(commit.getCommit().getCommittedDate());
+                if (date != null) commitDates.add(date);
                 if (commit.getSource() != AttributionSource.ACCOUNT && commit.getIdentity() != null) {
                     alsoCounted.merge(commit.getIdentity(), manual, Boolean::logicalOr);
                 }
@@ -102,6 +111,7 @@ public class ContributionsDetailServlet extends HttpServlet {
         } catch (GitHubApiException e) {
 
             rows.clear();
+            commitDates.clear();
             alsoCounted.clear();
             request.setAttribute("githubError", e.getMessage());
 
@@ -124,8 +134,23 @@ public class ContributionsDetailServlet extends HttpServlet {
         request.setAttribute("customSince", periodResolver.toInputValue(period.getSince()));
         request.setAttribute("customUntil", periodResolver.toInputValue(period.getUntil()));
 
+        // commit frequency chart (openspec capability commit-history-page): null without commits
+        CommitActivity activity = CommitActivity.of(commitDates, period.getSince(), period.getUntil(),
+                periodResolver.getMilestones(), periodResolver.getClock());
+        request.setAttribute("commitActivity", activity);
+        request.setAttribute("commitActivityJson", activity == null ? null : gson.toJson(activity));
+
         request.getRequestDispatcher("commits-detail.jsp").forward(request, response);
 
+    }
+
+    private static Instant instant(String iso) {
+        if (iso == null || iso.trim().isEmpty()) return null;
+        try {
+            return OffsetDateTime.parse(iso.trim()).toInstant();
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     /** Commits attributed to the login (case-insensitive); authors without account never match. */

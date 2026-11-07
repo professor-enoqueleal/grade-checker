@@ -41,6 +41,16 @@ public class PeriodResolver {
         return milestones.getZone();
     }
 
+    /** Milestones used to resolve the periods (also used by the commit frequency chart). */
+    public Milestones getMilestones() {
+        return milestones;
+    }
+
+    /** Clock of "today" and "now" (fixed in tests). */
+    public Clock getClock() {
+        return clock;
+    }
+
     /**
      * Resolves the period. When the requested period cannot be used (milestone not configured or in the
      * future, invalid custom dates) the result has {@link ResolvedPeriod#getError()} set; callers decide

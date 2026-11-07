@@ -1,0 +1,16 @@
+# keep the build context small: only pom, wrapper and src are needed
+.git
+.github
+.idea
+*.iml
+target
+e2e
+infra
+openspec
+# local secrets (GitHub App client secret): never sent to the Docker build
+.env.local
+# local folders, not used by the build
+build
+.no-commit
+.to-move
+**/.DS_Store

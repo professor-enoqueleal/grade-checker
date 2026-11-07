@@ -133,5 +133,8 @@ public final class GradingConfig {
     public int getLineCap() { return lineCap; }
     public int getRelevantCommitMinLines() { return relevantCommitMinLines; }
     public Set<String> getExcludedLogins() { return excludedLogins; }
+    public int getReorganizationMinFiles() { return reorganizationMinFiles; }
+    public double getReorganizationBalance() { return reorganizationBalance; }
+    public double getReorganizationFactor() { return reorganizationFactor; }
 
 }

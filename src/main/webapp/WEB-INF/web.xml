@@ -15,9 +15,8 @@
         <listener-class>org.jboss.weld.environment.servlet.Listener</listener-class>
     </listener>
     -->
-    <listener>
-        <listener-class>org.h2.server.web.JakartaDbStarter</listener-class>
-    </listener>
+    <!-- the application database is closed by br.com.gradechecker.config.DatabaseShutdownListener (@WebListener).
+         H2's JakartaDbStarter is not used: without db.url it opened another database (~/test). -->
 
     <servlet>
         <servlet-name>H2Console</servlet-name>

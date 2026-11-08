@@ -88,6 +88,7 @@ public class AuthenticationCallbackServletTest {
         order.verify(response).sendRedirect("/home");
         assertFalse("state is single use", sessionAttributes.containsKey(GitHubLoginServlet.STATE_ATTRIBUTE));
         assertEquals("alice", sessionAttributes.get(AdminConfig.USER_LOGIN_ATTRIBUTE));
+        assertEquals(Boolean.FALSE, sessionAttributes.get(AdminConfig.IS_ADMIN_ATTRIBUTE));
         verify(userProxy).fetchLogin("ghu_ok");
     }
 

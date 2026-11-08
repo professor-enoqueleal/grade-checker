@@ -69,7 +69,7 @@ public class LoginServlet extends HttpServlet {
             request.changeSessionId();
         }
         request.getSession(true).setAttribute("accessToken", accessToken);
-        request.getSession(true).setAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE, userLogin);
+        AdminConfig.signIn(request.getSession(true), userLogin);   // userLogin and isAdmin (openspec platform-admin)
 
         response.sendRedirect("/home");
 

@@ -118,53 +118,6 @@ public class GitHubProxy {
         return isPresent(value) ? value : "-";
     }
 
-     public Commit getCommitDetail(CommitRequestBody commitRequestBody, String sha) {
-
-        final String cacheKey = String.format("github.commit::%s:%s:%s:%s",
-                commitRequestBody.getOwner(),
-                commitRequestBody.getRepository(),
-                sha,
-                tokenHash(commitRequestBody.getAccessToken())
-        );
-
-         Commit cached = CacheManager.get(cacheKey, Commit.class);
-
-         if (cached != null) {
-             return cached;
-         }
-
-         String url = baseUrl + "/repos/{owner}/{repo}/commits/{sha}";
-
-         try {
-
-             String bearerToken = String.format("Bearer %s", commitRequestBody.getAccessToken());
-
-             HttpResponse<Commit> httpResponse = Unirest.get(url)
-                     .header("Accept", "application/json")
-                     .header("Authorization", bearerToken)
-                     .header("X-GitHub-Api-Version", githubApiVersion)
-                     .routeParam("owner", commitRequestBody.getOwner())
-                     .routeParam("repo", commitRequestBody.getRepository())
-                     .routeParam("sha", sha)
-                     .asObject(Commit.class);
-
-             logger.info("success on get commits detail on github");
-
-             Commit body = httpResponse.getBody();
-             CacheManager.put(cacheKey, body);
-
-             return body;
-
-         } catch (Exception e) {
-
-             logger.error("Error on retrieve commits detail on github. Cause: {}", e.getMessage());
-
-             throw new RuntimeException("Error on retrieve commits detail on github");
-
-         }
-
-     }
-
     static final String MAX_COMMITS_PROPERTY = "GH_DASHBOARD_MAX_COMMITS";
     static final int DEFAULT_MAX_COMMITS = 1000;
     private static final int PAGE_SIZE = 100;

@@ -68,4 +68,27 @@ public class AdminConfigTest {
         assertFalse(AdminConfig.isAdmin(session(null)));
         assertFalse(AdminConfig.isAdmin((HttpSession) null));
     }
+    @Test
+    public void signInStoresTheLoginAndTheAdministratorFlag() {
+        System.setProperty(AdminConfig.ADMINS, "professor-enoqueleal");
+        HttpSession admin = mock(HttpSession.class);
+        AdminConfig.signIn(admin, "Professor-EnoqueLeal");
+        org.mockito.Mockito.verify(admin).setAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE, "Professor-EnoqueLeal");
+        org.mockito.Mockito.verify(admin).setAttribute(AdminConfig.IS_ADMIN_ATTRIBUTE, true);
+
+        HttpSession student = mock(HttpSession.class);
+        AdminConfig.signIn(student, "alice");
+        org.mockito.Mockito.verify(student).setAttribute(AdminConfig.IS_ADMIN_ATTRIBUTE, false);
+    }
+
+    @Test
+    public void theFlagInTheSessionDoesNotGrantAdministratorAccess() {
+        System.setProperty(AdminConfig.ADMINS, "professor-enoqueleal");
+        HttpSession session = mock(HttpSession.class);
+        when(session.getAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE)).thenReturn("alice");
+        when(session.getAttribute(AdminConfig.IS_ADMIN_ATTRIBUTE)).thenReturn(true);   // tampered flag
+
+        assertFalse(AdminConfig.isAdmin(session));   // authorization comes from the login
+    }
+
 }

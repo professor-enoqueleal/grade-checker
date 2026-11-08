@@ -20,6 +20,12 @@ public final class AdminConfig {
     /** Session attribute with the GitHub login of the signed-in user (set at sign-in). */
     public static final String USER_LOGIN_ATTRIBUTE = "userLogin";
 
+    /**
+     * Session attribute: true when the signed-in user is an administrator (set at sign-in). Only used by the navbar to
+     * show the administrator links; authorization always uses {@link #isAdmin(HttpSession)}, computed from the login.
+     */
+    public static final String IS_ADMIN_ATTRIBUTE = "isAdmin";
+
     private AdminConfig() {
     }
 
@@ -42,6 +48,12 @@ public final class AdminConfig {
     /** False for a missing session or a session without userLogin (e.g. created before this change). */
     public static boolean isAdmin(HttpSession session) {
         return session != null && isAdmin(userLogin(session));
+    }
+
+    /** Stores the login and the administrator flag of the user who just signed in (GitHub or token). */
+    public static void signIn(HttpSession session, String login) {
+        session.setAttribute(USER_LOGIN_ATTRIBUTE, login);
+        session.setAttribute(IS_ADMIN_ATTRIBUTE, isAdmin(login));
     }
 
     public static String userLogin(HttpSession session) {

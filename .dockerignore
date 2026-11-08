@@ -14,3 +14,5 @@ build
 .no-commit
 .to-move
 **/.DS_Store
+# serverless version (SPA with node_modules, plan): not part of the Jetty image
+serverless

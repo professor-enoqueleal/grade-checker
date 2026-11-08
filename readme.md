@@ -176,7 +176,7 @@ nota do marco = 3 × min(1, (participação no índice ÷ parte justa) ÷ 0,8)  
 
 ### Notas da turma (somente administradores)
 
-A página **`/grades`** ("Class grades", link na home) lista **todos os alunos de todos os grupos** com M1, M2, M3 e Total, com as mesmas notas do detalhe de cada grupo no período All, incluindo as associações manuais (spec: `openspec/specs/class-gradebook`).
+A página **`/grades`** ("Class grades", link na navbar) lista **todos os alunos de todos os grupos** com M1, M2, M3 e Total, com as mesmas notas do detalhe de cada grupo no período All, incluindo as associações manuais (spec: `openspec/specs/class-gradebook`).
 
 - **Acesso:** só os logins de `GRADE_CHECKER_ADMINS`. Para os outros usuários, `/grades`, `/grades/group` e `/grades.csv` respondem 403. As notas no detalhe de cada grupo continuam visíveis para todos.
 - **Carga progressiva:** as notas são calculadas grupo a grupo (3 por vez). Um erro do GitHub aparece só nas linhas daquele grupo, e as demais continuam.
@@ -186,9 +186,17 @@ A página **`/grades`** ("Class grades", link na home) lista **todos os alunos d
 
 ---
 
+## Navbar
+
+Todas as páginas autenticadas têm a mesma navbar (spec: `openspec/specs/navigation-bar`): a marca **"Grade Checker"** (leva à home), os links de administrador **"Manage groups"** e **"Class grades"** (só para quem está em `GRADE_CHECKER_ADMINS`), o login do usuário e **"Sign out"**. No celular, os itens recolhem num botão de menu. O breadcrumb continua em todas as páginas, abaixo da navbar.
+
+- **Um arquivo só:** `src/main/webapp/WEB-INF/tags/navbar.tag`. Cada página usa `<%@ taglib prefix="gc" tagdir="/WEB-INF/tags" %>` e `<gc:navbar/>` (ou `<gc:navbar active="grades"/>` / `active="groups"` para destacar o item atual). Um item novo no arquivo aparece em todas as páginas.
+- **Dados da sessão:** no login (GitHub ou token), `AdminConfig.signIn` grava `userLogin` e `isAdmin` na sessão, e a navbar lê os dois. A flag só mostra ou esconde links: telas e APIs continuam verificando o administrador pelo login.
+- As páginas com navbar precisam do JavaScript do Bootstrap (`bootstrap.min.js`) para o menu do celular, **uma única vez**: com duas cópias (por exemplo, `bootstrap.min.js` e `bootstrap.bundle.js`), o menu abre e não fecha. O `JspStructureTest` confere isso.
+
 ## Grupos (somente administradores)
 
-A home é a tela dos alunos: ela só lista os grupos ativos. O administrador gerencia os grupos na tela **"Manage groups"** (`/groups`), aberta pelo link na linha do breadcrumb da home, à direita, antes de "Class grades" (spec: `openspec/specs/group-management`):
+A home é a tela dos alunos: ela só lista os grupos ativos. O administrador gerencia os grupos na tela **"Manage groups"** (`/groups`), aberta pelo link da navbar (spec: `openspec/specs/group-management`):
 
 - **Lista:** id, nome, repositório (`dono/repositório`, com link) e quantidade de membros, com os links **"Edit"** e **"Archive"**. No celular, o repositório aparece abaixo do nome.
 - **"Add a new group":** nome e URL do repositório (`https://github.com/dono/repositório`, com ou sem `.git`). O repositório é validado no GitHub com o seu token e gravado com a grafia do GitHub. URL inválida, repositório inexistente e repositório já cadastrado (inclusive num grupo arquivado) são recusados no próprio formulário.

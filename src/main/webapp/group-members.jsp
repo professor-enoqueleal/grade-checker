@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+    <%@ taglib prefix="gc" tagdir="/WEB-INF/tags" %>
     <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <script src="/webjars/jquery/3.7.1/jquery.min.js"></script>
     <script src="/webjars/bootstrap/5.3.0/js/bootstrap.min.js"></script>
@@ -13,6 +14,8 @@
     </style>
 </head>
 <body>
+
+<gc:navbar/>
 
 <main class="container">
     <br>

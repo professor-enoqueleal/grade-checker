@@ -18,9 +18,6 @@ public class HomeServlet extends HttpServlet {
 
     private GroupRepository groupRepository;
 
-//    @Inject
-//    private GradeServiceImpl gradeService;
-
     public HomeServlet() {
         this.groupRepository = new GroupRepository();
     }

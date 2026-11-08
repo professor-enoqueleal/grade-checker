@@ -47,6 +47,7 @@ public class LoginServletTest {
         order.verify(session).setAttribute("accessToken", "ghp_abc");
         order.verify(response).sendRedirect("/home");
         verify(session).setAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE, "alice");
+        verify(session).setAttribute(AdminConfig.IS_ADMIN_ATTRIBUTE, false);
     }
 
     @Test

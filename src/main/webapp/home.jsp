@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+    <%@ taglib prefix="gc" tagdir="/WEB-INF/tags" %>
     <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.min.js"></script>
     <meta charset="UTF-8">
     <title>Grade Checker</title>
     <style>
@@ -16,23 +18,16 @@
 </head>
 <body>
 
+<gc:navbar/>
+
 <main class="container">
     <br>
-    <%-- breadcrumb on the left; "Manage groups" (openspec capability group-management) and "Class grades"
-         (openspec capability class-gradebook) on the right, administrators only. The home is the students' page. --%>
-    <div class="d-flex justify-content-between align-items-center mb-3" id="home-navigation">
-      <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
-        <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item active"><a href="/home">Home</a></li>
-        </ol>
-      </nav>
-      <c:if test="${isAdmin}">
-        <div class="d-flex gap-3" id="admin-links">
-          <a id="manage-groups-link" href="/groups">Manage groups</a>
-          <a id="class-grades-link" href="/grades">Class grades</a>
-        </div>
-      </c:if>
-    </div>
+    <%-- the home is the students' page; "Manage groups" and "Class grades" are in the navbar (administrators) --%>
+    <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item active"><a href="/home">Home</a></li>
+      </ol>
+    </nav>
     <hr>
 
     <h4>Groups</h4>
@@ -76,7 +71,5 @@
 
     </div>
   </main>
-<script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.js"></script>
-<script src="/js/navbar.js"></script>
 </body>
 </html>

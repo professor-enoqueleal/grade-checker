@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+    <%@ taglib prefix="gc" tagdir="/WEB-INF/tags" %>
     <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.min.js"></script>
     <meta charset="UTF-8">
     <title>Grade Checker | Class grades</title>
     <style>
@@ -19,6 +21,8 @@
     </style>
 </head>
 <body>
+
+<gc:navbar active="grades"/>
 
 <main class="container">
     <br>
@@ -229,6 +233,5 @@
     });
 })();
 </script>
-<script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.js"></script>
 </body>
 </html>

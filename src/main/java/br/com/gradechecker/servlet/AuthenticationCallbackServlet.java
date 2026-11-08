@@ -86,7 +86,7 @@ public class AuthenticationCallbackServlet extends HttpServlet {
 
         request.changeSessionId(); // session fixation protection
         request.getSession().setAttribute("accessToken", accessToken.getAccessToken());
-        request.getSession().setAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE, userLogin);
+        AdminConfig.signIn(request.getSession(), userLogin);   // userLogin and isAdmin (openspec platform-admin)
 
         response.sendRedirect("/home");
     }

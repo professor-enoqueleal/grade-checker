@@ -186,6 +186,18 @@ A página **`/grades`** ("Class grades", link na home) lista **todos os alunos d
 
 ---
 
+## Grupos (somente administradores)
+
+A home é a tela dos alunos: ela só lista os grupos ativos. O administrador gerencia os grupos na tela **"Manage groups"** (`/groups`), aberta pelo link na linha do breadcrumb da home, à direita, antes de "Class grades" (spec: `openspec/specs/group-management`):
+
+- **Lista:** id, nome, repositório (`dono/repositório`, com link) e quantidade de membros, com os links **"Edit"** e **"Archive"**. No celular, o repositório aparece abaixo do nome.
+- **"Add a new group":** nome e URL do repositório (`https://github.com/dono/repositório`, com ou sem `.git`). O repositório é validado no GitHub com o seu token e gravado com a grafia do GitHub. URL inválida, repositório inexistente e repositório já cadastrado (inclusive num grupo arquivado) são recusados no próprio formulário.
+- **Home vazia:** o link **"Add a new group"** no meio da tela (só para o administrador) abre essa tela já com o formulário de cadastro (`/groups?add=1`).
+- **"Edit":** muda o nome e a URL. O grupo mantém o mesmo id, então membros, associações manuais e notas continuam. Ao trocar a URL, o formulário avisa que contribuidores e notas passam a vir do repositório novo.
+- **"Archive":** o grupo sai da home, de `/grades` e do CSV, e `/detail` responde 404. Nada é apagado: ele fica em **"Archived groups"**, com **"Restore"**, que traz tudo de volta.
+- **Seeds do `db.sql`:** um grupo arquivado continua no banco com a mesma URL, então o seed não o recria. **Mas**, se você trocar a URL de um grupo que veio de um seed, no próximo início o seed não acha mais a URL antiga e recria o grupo original: atualize o `db.sql` junto.
+- API usada pela tela: `POST /groups/api` (`name`, `repositoryUrl`), `PUT /groups/api?id=&name=&repositoryUrl=`, `POST /groups/api/archive?id=` e `POST /groups/api/restore?id=`. Exige sessão de administrador e o header `X-Requested-With: XMLHttpRequest`. A antiga rota `/group/create` não existe mais.
+
 ## Membros do grupo (somente administradores)
 
 Na página de detalhe do grupo e na tela **"Manage members"** (spec: `openspec/specs/group-members`):

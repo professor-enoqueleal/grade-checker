@@ -40,16 +40,24 @@ public class IdentityAliasServlet extends HttpServlet {
     private final IdentityAliasRepository repository;
     private final Function<Long, List<String>> roster; // group id -> members' GitHub usernames
     private final GradingConfig grading;
+    private final java.util.function.LongPredicate activeGroup;   // archived groups are missing (group-management)
     private final Gson gson = new GsonBuilder().serializeNulls().create();
 
     public IdentityAliasServlet() {
-        this(new IdentityAliasRepository(), new MemberRepository()::findUsernamesByGroupId, GradingConfig.fromClasspath());
+        this(new IdentityAliasRepository(), new MemberRepository()::findUsernamesByGroupId, GradingConfig.fromClasspath(),
+                id -> new br.com.gradechecker.repository.GroupRepository().getGroupDetail(id) != null);
     }
 
     public IdentityAliasServlet(IdentityAliasRepository repository, Function<Long, List<String>> roster, GradingConfig grading) {
+        this(repository, roster, grading, id -> true);
+    }
+
+    public IdentityAliasServlet(IdentityAliasRepository repository, Function<Long, List<String>> roster, GradingConfig grading,
+                                java.util.function.LongPredicate activeGroup) {
         this.repository = repository;
         this.roster = roster;
         this.grading = grading;
+        this.activeGroup = activeGroup;
     }
 
     @Override
@@ -112,6 +120,11 @@ public class IdentityAliasServlet extends HttpServlet {
             groupId = Long.parseLong(trim(request.getParameter("groupId")));
         } catch (NumberFormatException | NullPointerException e) {
             write(response, HttpServletResponse.SC_BAD_REQUEST, error("bad_request", "The 'groupId' parameter is required."));
+            return null;
+        }
+
+        if (!activeGroup.test(groupId)) {
+            write(response, HttpServletResponse.SC_NOT_FOUND, error("not_found", "Group not found."));
             return null;
         }
 

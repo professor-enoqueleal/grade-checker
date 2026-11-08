@@ -13,6 +13,8 @@ public class Group {
     private int totalOfMembers;
     private List<Member> members;          // openspec capability group-members
     private String contributorsError;      // message when the contributors could not be read from GitHub
+    private boolean repositoryPrivate;
+    private java.time.Instant archivedAt;  // null = active (openspec capability group-management)
 
     public Group() {
 
@@ -114,6 +116,26 @@ public class Group {
 
     public void setContributorsError(String contributorsError) {
         this.contributorsError = contributorsError;
+    }
+
+    public boolean isRepositoryPrivate() {
+        return repositoryPrivate;
+    }
+
+    public void setRepositoryPrivate(boolean repositoryPrivate) {
+        this.repositoryPrivate = repositoryPrivate;
+    }
+
+    public java.time.Instant getArchivedAt() {
+        return archivedAt;
+    }
+
+    public void setArchivedAt(java.time.Instant archivedAt) {
+        this.archivedAt = archivedAt;
+    }
+
+    public boolean isArchived() {
+        return archivedAt != null;
     }
 
 }

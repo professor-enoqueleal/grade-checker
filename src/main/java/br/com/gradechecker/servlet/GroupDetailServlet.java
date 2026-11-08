@@ -38,15 +38,21 @@ public class GroupDetailServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
 
-        String groupId = httpServletRequest.getParameter("id");
-
-        if (null == groupId) {
-            throw new RuntimeException("Error! Group id is not informed");
+        long groupId;
+        try {
+            groupId = Long.parseLong(httpServletRequest.getParameter("id").trim());
+        } catch (NumberFormatException | NullPointerException e) {
+            httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, "The 'id' parameter is required.");
+            return;
         }
 
         String accessToken = (String) httpServletRequest.getSession().getAttribute("accessToken");
 
-        Group group = groupService.getGroup(Long.parseLong(groupId), accessToken);
+        Group group = groupService.getGroup(groupId, accessToken);
+        if (group == null) {   // missing or archived group (openspec capability group-management)
+            httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND, "Group not found.");
+            return;
+        }
 
         httpServletRequest.setAttribute("group", group);
 

@@ -63,7 +63,7 @@ public class QueriesTest {
 
     @Test
     public void getReturnsTheConfiguredQuery() {
-        assertEquals("SELECT * FROM GROUPS", Queries.get("group.findAll"));
+        assertEquals("SELECT * FROM GROUPS WHERE ARCHIVED_AT IS NULL ORDER BY ID", Queries.get("group.findAll"));
     }
 
     @Test(expected = IllegalArgumentException.class)

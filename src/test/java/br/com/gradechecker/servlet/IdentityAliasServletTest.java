@@ -65,6 +65,17 @@ public class IdentityAliasServletTest {
     }
 
     @Test
+    public void archivedGroupIsAMissingGroup() throws Exception {
+        IdentityAliasServlet archived = new IdentityAliasServlet(repository, groupId -> List.of("joaolima16"),
+                GradingConfig.defaults(), id -> false);   // group-management: archived = not found
+
+        archived.doPost(request, response);
+
+        verify(response).setStatus(404);
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     public void nonAdminReceives403AndNothingIsSaved() throws Exception {
         when(session.getAttribute(AdminConfig.USER_LOGIN_ATTRIBUTE)).thenReturn("alice");
 

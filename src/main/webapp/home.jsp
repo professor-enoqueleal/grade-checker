@@ -18,7 +18,8 @@
 
 <main class="container">
     <br>
-    <%-- breadcrumb on the left; "Class grades" (administrators, openspec capability class-gradebook) on the right --%>
+    <%-- breadcrumb on the left; "Manage groups" (openspec capability group-management) and "Class grades"
+         (openspec capability class-gradebook) on the right, administrators only. The home is the students' page. --%>
     <div class="d-flex justify-content-between align-items-center mb-3" id="home-navigation">
       <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
@@ -26,7 +27,10 @@
         </ol>
       </nav>
       <c:if test="${isAdmin}">
-        <a id="class-grades-link" href="/grades">Class grades</a>
+        <div class="d-flex gap-3" id="admin-links">
+          <a id="manage-groups-link" href="/groups">Manage groups</a>
+          <a id="class-grades-link" href="/grades">Class grades</a>
+        </div>
       </c:if>
     </div>
     <hr>
@@ -38,11 +42,13 @@
         <br>
         <br>
         <br>
-        <p class="text-center">No groups to show :(</p>
-        <br>
-        <div class="text-center">
-            <a href="/group/create">Create group!</a>
-        </div>
+        <p class="text-center" id="no-groups">No groups to show :(</p>
+        <c:if test="${isAdmin}">
+            <br>
+            <div class="text-center">
+                <a href="/groups?add=1" id="add-group-home-link">Add a new group</a>
+            </div>
+        </c:if>
     </c:if>
 
     <!-- 1 column < 576px, 2 columns 576-991px, 3 columns >= 992px; cards fill their column -->

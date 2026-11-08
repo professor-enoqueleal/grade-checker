@@ -43,6 +43,7 @@ public class GroupServiceImpl implements GroupService {
     public Group getGroup(Long groupId, String accessToken) {
 
         Group stored = groupRepository.getGroupDetail(groupId);
+        if (stored == null) return null;   // missing or archived (openspec capability group-management)
 
         // a copy: the stored group is a cached object shared by every user
         Group group = new Group(stored.getId(), stored.getName(), stored.getRepositoryUrl(), stored.getOwner(), stored.getRepository());

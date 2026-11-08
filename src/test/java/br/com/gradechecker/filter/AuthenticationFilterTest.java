@@ -87,7 +87,7 @@ public class AuthenticationFilterTest {
 
     @Test
     public void protectedRouteWithSessionPassesThrough() throws Exception {
-        path("/group/create", null);
+        path("/groups/api", null);
         loggedIn();
         assertPassesThrough();
     }

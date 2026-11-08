@@ -8,12 +8,18 @@ public final class SqlQueries {
 
     // GROUPS
     public static final String GROUPS_SELECT_ALL = Queries.get("group.findAll");
+    public static final String GROUPS_SELECT_ARCHIVED = Queries.get("group.findArchived");
+    public static final String GROUPS_SELECT_REPOSITORIES = Queries.get("group.findRepositories");
+    public static final String GROUPS_UPDATE = Queries.get("group.update");
+    public static final String GROUPS_ARCHIVE = Queries.get("group.archive");
+    public static final String GROUPS_RESTORE = Queries.get("group.restore");
     public static final String GROUPS_SELECT_BY_ID = Queries.get("group.findById");
     public static final String GROUPS_INSERT = Queries.get("group.insert");
 
     // MEMBERS (openspec capability group-members)
     public static final String MEMBERS_INSERT = Queries.get("member.insert");
     public static final String MEMBERS_COUNT_BY_GROUP_ID = Queries.get("member.countByGroupId");
+    public static final String MEMBERS_COUNT_ALL_GROUPS = Queries.get("member.countAllGroups");
     public static final String MEMBERS_SELECT_USERNAMES_BY_GROUP_ID = Queries.get("member.selectUsernamesByGroupId");
     public static final String MEMBERS_SELECT_BY_GROUP_ID = Queries.get("member.findByGroupId");
     public static final String MEMBERS_COUNT_BY_GROUP_ID_AND_USERNAME = Queries.get("member.countByGroupIdAndUsername");

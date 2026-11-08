@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS GROUPS(
     REPOSITORY_PRIVATE BOOLEAN DEFAULT FALSE
 );
 
+-- archived groups (openspec capability group-management): NULL = active. Archiving never deletes members or aliases,
+-- and an archived group keeps its REPOSITORY_URL, so the seeds below do not insert it again
+ALTER TABLE GROUPS ADD COLUMN IF NOT EXISTS ARCHIVED_AT TIMESTAMP;
+
 -- members = students of the group, marked by an administrator (openspec capability group-members).
 -- Contributors come from GitHub and are not stored: the old CONTRIBUTORS table is no longer created or used
 -- (databases created by older versions keep it, since this script never drops tables). GITHUB_ID is written as NULL,

@@ -562,4 +562,38 @@ public class GitHubProxy {
 
     }
 
+    /**
+     * Repository of a group, read with the session token (openspec capability group-management), or null when it does
+     * not exist or the token cannot see it (404).
+     *
+     * @throws GitHubApiException when GitHub cannot be read for another reason
+     */
+    public br.com.gradechecker.model.GitHubRepository getRepository(String owner, String repo, String accessToken) {
+
+        HttpResponse<String> response;
+        try {
+            kong.unirest.GetRequest request = Unirest.get(baseUrl + "/repos/{owner}/{repo}")
+                    .header("Accept", "application/json")
+                    .header("X-GitHub-Api-Version", githubApiVersion)
+                    .routeParam("owner", owner)
+                    .routeParam("repo", repo);
+            if (accessToken != null && !accessToken.isEmpty()) request = request.header("Authorization", "Bearer " + accessToken);
+            response = request.asString();
+        } catch (Exception e) {
+            logger.error("Error fetching repository {}/{} from GitHub: {}", owner, repo, e.getMessage());
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Could not connect to GitHub. Please try again.", e);
+        }
+
+        if (response.getStatus() == 404) return null;
+        if (response.getStatus() != 200) throw httpError(response);
+
+        try {
+            br.com.gradechecker.model.GitHubRepository repository =
+                    GSON.fromJson(response.getBody(), br.com.gradechecker.model.GitHubRepository.class);
+            return repository == null || repository.getHtmlUrl() == null || repository.getOwnerLogin() == null ? null : repository;
+        } catch (RuntimeException e) {
+            throw new GitHubApiException(502, GitHubApiException.ERROR, "Invalid response from GitHub.", e);
+        }
+    }
+
 }

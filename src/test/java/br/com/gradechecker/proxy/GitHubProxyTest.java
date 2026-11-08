@@ -96,4 +96,34 @@ public class GitHubProxyTest {
         proxy.getUser("x", "tok");
     }
 
+    // ---------- repository of a group (openspec capability group-management)
+
+    @Test
+    public void getRepositoryReturnsTheSpellingOfGitHubWithTheToken() {
+        stubFor(get(urlEqualTo("/repos/hugodev0711/clinica-pi")).withHeader("Authorization", equalTo("Bearer t"))
+                .willReturn(okJson("{\"name\":\"clinica-pi\",\"html_url\":\"https://github.com/Hugodev0711/clinica-pi\","
+                        + "\"private\":true,\"owner\":{\"login\":\"Hugodev0711\"}}")));
+
+        br.com.gradechecker.model.GitHubRepository r = proxy.getRepository("hugodev0711", "clinica-pi", "t");
+
+        assertEquals("https://github.com/Hugodev0711/clinica-pi", r.getHtmlUrl());
+        assertEquals("Hugodev0711", r.getOwnerLogin());
+        assertEquals("clinica-pi", r.getName());
+        assertTrue(r.isPrivateRepository());
+    }
+
+    @Test
+    public void missingRepositoryIsNullAndOtherErrorsAreExceptions() {
+        stubFor(get(urlEqualTo("/repos/a/missing")).willReturn(notFound()));
+        assertNull(proxy.getRepository("a", "missing", "t"));
+
+        stubFor(get(urlEqualTo("/repos/a/forbidden")).willReturn(aResponse().withStatus(401).withBody("{\"message\":\"Bad credentials\"}")));
+        try {
+            proxy.getRepository("a", "forbidden", "t");
+            fail("expected GitHubApiException");
+        } catch (GitHubApiException e) {
+            assertEquals(401, e.getHttpStatus());
+        }
+    }
+
 }

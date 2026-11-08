@@ -65,4 +65,86 @@ public class GroupRepositoryTest {
         assertNotNull(detail);
         assertEquals(g.getId(), detail.getId());
     }
+    // ---------- group management (openspec capability group-management)
+
+    private static Group group(String name, String url) {
+        String[] parts = url.replace("https://github.com/", "").split("/");
+        return new Group(name, url, parts[0], parts[1]);
+    }
+
+    @Test
+    public void createUpdateArchiveAndRestoreKeepMembersAndAliases() throws Exception {
+        br.com.gradechecker.cache.CacheManager.invalidateAll();
+        GroupRepository repo = new GroupRepository();
+        long id = repo.create(group("crud-test", "https://github.com/test/crud-test"));
+        assertTrue(id > 0);
+        new MemberRepository().addIfAbsent(id, "crud-student", "crud-student", true);
+        new IdentityAliasRepository().save(id, "name:crud", "crud-student", "professor");
+        assertEquals(Integer.valueOf(1), repo.countMembers().get(id));
+
+        // edit: same id, members and aliases stay; caches see the new values
+        assertEquals("crud-test", repo.getGroupDetail(id).getName());          // cached
+        Group edited = group("crud-renamed", "https://github.com/test/crud-renamed");
+        edited.setId(id);
+        assertTrue(repo.update(edited));
+        assertEquals("crud-renamed", repo.getGroupDetail(id).getName());
+        assertEquals("https://github.com/test/crud-renamed", repo.getGroupDetail(id).getRepositoryUrl());
+
+        // archive: out of findAll and getGroupDetail, listed as archived, nothing deleted
+        assertTrue(repo.archive(id));
+        assertFalse("already archived", repo.archive(id));
+        assertNull(repo.getGroupDetail(id));
+        assertTrue(repo.findAll().stream().noneMatch(g -> g.getId() == id));
+        assertTrue(repo.findArchived().stream().anyMatch(g -> g.getId() == id && g.getArchivedAt() != null));
+        assertFalse("an archived group cannot be edited", repo.update(edited));
+        assertTrue(new MemberRepository().isMember(id, "crud-student"));
+        assertEquals("crud-student", new IdentityAliasRepository().findByGroupId(id).get("name:crud"));
+
+        // restore: back with the same members and aliases
+        assertTrue(repo.restore(id));
+        assertFalse("already active", repo.restore(id));
+        assertNotNull(repo.getGroupDetail(id));
+        assertTrue(repo.findAll().stream().anyMatch(g -> g.getId() == id));
+        assertTrue(new MemberRepository().isMember(id, "crud-student"));
+    }
+
+    @Test
+    public void findByRepositoryIgnoresCaseGitAndSlashAndSeesArchivedGroups() throws Exception {
+        br.com.gradechecker.cache.CacheManager.invalidateAll();
+        GroupRepository repo = new GroupRepository();
+        long id = repo.create(group("dup-test", "https://github.com/Test/Dup-Test"));
+
+        assertEquals(id, repo.findByRepository("https://github.com/test/dup-test.git/", null).getId());
+        assertNull("the edited group itself does not count", repo.findByRepository("https://github.com/test/dup-test", id));
+        assertNull(repo.findByRepository("https://github.com/test/other", null));
+
+        repo.archive(id);
+        Group archived = repo.findByRepository("https://github.com/test/dup-test", null);
+        assertEquals(id, archived.getId());
+        assertTrue(archived.isArchived());
+        repo.restore(id);
+    }
+
+    @Test
+    public void archivedSeedIsNotCreatedAgainOnTheNextStart() throws Exception {
+        br.com.gradechecker.cache.CacheManager.invalidateAll();
+        GroupRepository repo = new GroupRepository();
+        String seed = "https://github.com/Hugodev0711/clinica-pi";
+        Group group = repo.findByRepository(seed, null);
+        org.junit.Assume.assumeNotNull(group);   // db.sql may come without seeds
+
+        assertTrue(repo.archive(group.getId()));
+        try {
+            assertTrue(br.com.gradechecker.servlet.BootstrapDatabaseServletTestSupport.reload());   // next start
+            try (Connection c = ConnectionPoolConfig.getConnection(); Statement st = c.createStatement();
+                 java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM GROUPS WHERE REPOSITORY_URL = '" + seed + "'")) {
+                rs.next();
+                assertEquals(1, rs.getInt(1));
+            }
+            assertTrue(repo.findAnyById(group.getId()).isArchived());
+        } finally {
+            repo.restore(group.getId());
+        }
+    }
+
 }

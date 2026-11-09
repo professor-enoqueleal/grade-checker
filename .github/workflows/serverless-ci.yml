@@ -1,0 +1,64 @@
+# CI of the serverless version (applications/serverless, capability serverless-delivery): unit tests of the Lambda and
+# typecheck, tests and build of the SPA, on every push and pull request to main that changes the serverless version,
+# the library it uses (applications/library-core) or this file.
+name: Serverless CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "applications/serverless/**"
+      - "applications/library-core/**"
+      - ".github/workflows/serverless-ci.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "applications/serverless/**"
+      - "applications/library-core/**"
+      - ".github/workflows/serverless-ci.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: applications/serverless
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Set up Node 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: applications/serverless/spa/package-lock.json
+
+    # grade-checker-core of this commit, no GitHub Packages token
+    - name: Build and install grade-checker-core
+      run: mvn -B install --file ../library-core/pom.xml
+
+    - name: Lambda - unit tests
+      working-directory: applications/serverless/lambda
+      run: mvn -B test
+
+    - name: SPA - install
+      working-directory: applications/serverless/spa
+      run: npm ci --no-audit --no-fund
+
+    - name: SPA - typecheck, tests and build
+      working-directory: applications/serverless/spa
+      run: |
+        npm run typecheck
+        npm test
+        npm run build

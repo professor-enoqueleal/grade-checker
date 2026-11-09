@@ -1,0 +1,80 @@
+[
+  {
+    "name": "projeto-chamados",
+    "repositoryUrl": "https://github.com/Saacbs/Projeto-Chamados",
+    "owner": "Saacbs",
+    "repository": "projeto-chamados"
+  },
+  {
+    "name": "sensei-dev",
+    "repositoryUrl": "https://github.com/VitorConrado04/sensei-dev",
+    "owner": "VitorConrado04",
+    "repository": "sensei-dev"
+  },
+  {
+    "name": "clinica",
+    "repositoryUrl": "https://github.com/Hugodev0711/clinica-pi",
+    "owner": "Hugodev0711",
+    "repository": "clinica-pi"
+  },
+  {
+    "name": "nonna-pizza",
+    "repositoryUrl": "https://github.com/rulckus/nonna-pizza",
+    "owner": "rulckus",
+    "repository": "nonna-pizza"
+  },
+  {
+    "name": "conversor-estoque-xml",
+    "repositoryUrl": "https://github.com/GuilhermeMeloGS/conversor-estoque-xml",
+    "owner": "GuilhermeMeloGS",
+    "repository": "conversor-estoque-xml"
+  },
+  {
+    "name": "cannamed",
+    "repositoryUrl": "https://github.com/LucasMoura-dev777/cannamed",
+    "owner": "LucasMoura-dev777",
+    "repository": "cannamed"
+  },
+  {
+    "name": "sistema-gestao-funcionarios",
+    "repositoryUrl": "https://github.com/Renan7Erick/sistema-gestao-funcionarios",
+    "owner": "Renan7Erick",
+    "repository": "sistema-gestao-funcionarios"
+  },
+  {
+    "name": "locacaoquadras",
+    "repositoryUrl": "https://github.com/pedfaroh-bit/locacaoquadras",
+    "owner": "pedfaroh-bit",
+    "repository": "locacaoquadras"
+  },
+  {
+    "name": "plataforma-amis",
+    "repositoryUrl": "https://github.com/amanda-pedreira/Plataforma-Amis",
+    "owner": "amanda-pedreira",
+    "repository": "plataforma-amis"
+  },
+  {
+    "name": "reelbook",
+    "repositoryUrl": "https://github.com/itscuds/reelbook",
+    "owner": "itscuds",
+    "repository": "reelbook"
+  },
+  {
+    "name": "biblioteca-virtual",
+    "repositoryUrl": "https://github.com/Melibanio/biblioteca-virtual",
+    "owner": "Melibanio",
+    "repository": "biblioteca-virtual"
+  },
+  {
+    "name": "livraria-lexxis",
+    "repositoryUrl": "https://github.com/FelipeZx405/livraria-lexxis",
+    "owner": "FelipeZx405",
+    "repository": "livraria-lexxis"
+  },
+  {
+    "name": "eventhub",
+    "repositoryUrl": "https://github.com/gabrielrgtx/eventhub",
+    "owner": "gabrielrgtx",
+    "repository": "eventhub"
+  }
+]

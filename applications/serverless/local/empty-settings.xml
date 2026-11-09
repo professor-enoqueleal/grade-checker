@@ -1,0 +1,4 @@
+<!-- Default Maven settings for the Docker builds of docker-compose.yml: no token. Enough while the version of
+     grade-checker-core in lambda/pom.xml is the one in applications/library-core (compiled inside the image). For another version,
+     point MAVEN_SETTINGS to a settings.xml with a read:packages token: MAVEN_SETTINGS=~/.m2/settings.xml -->
+<settings/>

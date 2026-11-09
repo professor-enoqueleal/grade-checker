@@ -1,0 +1,35 @@
+{
+  "name": "grade-checker-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Grade Checker SPA (Vue 3 + Vite), served by S3 + CloudFront; talks to the /api of the serverless backend",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:mock": "vite --mode mock",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@popperjs/core": "2.11.8",
+    "bootstrap": "5.3.3",
+    "bootstrap-icons": "1.11.3",
+    "chart.js": "4.4.1",
+    "vue": "3.5.12",
+    "vue-router": "4.4.5"
+  },
+  "devDependencies": {
+    "@types/bootstrap": "5.2.10",
+    "@types/node": "20.14.10",
+    "@vitejs/plugin-vue": "5.1.4",
+    "@vue/test-utils": "2.4.6",
+    "jsdom": "25.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.4.10",
+    "vitest": "2.1.4",
+    "vue-tsc": "2.1.10"
+  }
+}

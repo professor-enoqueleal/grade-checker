@@ -1,0 +1,333 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform:
+  - AWS::LanguageExtensions          # parameter in DeletionPolicy / UpdateReplacePolicy of the data table
+  - AWS::Serverless-2016-10-31
+Description: >
+  Grade Checker serverless - the whole stack: SPA in a private S3 bucket and the API (one Lambda, Java 21, SnapStart,
+  behind an API Gateway HTTP API) served by one CloudFront distribution (same HTTPS domain), with DynamoDB.
+  Spec: applications/serverless/openspec (capabilities aws-stack, backend-project). Runs locally with
+  `sam local start-api` (S3 and CloudFront are ignored there). Tags: applied as stack tags by scripts/deploy.sh.
+
+Parameters:
+  GitHubClientId:
+    Type: String
+    Default: ''
+    Description: Client ID of the GitHub App (sign in with GitHub)
+  GitHubClientSecretParameter:
+    Type: String
+    Default: /grade-checker/github-client-secret
+    Description: Name of the SSM SecureString parameter with the client secret of the GitHub App (created outside the stack)
+  GradeCheckerAdmins:
+    Type: String
+    Default: ''
+    Description: GitHub logins of the administrators, comma separated
+  CacheTtlSeconds:
+    Type: Number
+    Default: 600
+    Description: TTL of the GitHub cache (seconds)
+  DashboardMaxCommits:
+    Type: Number
+    Default: 1000
+    Description: Maximum number of commits read per report
+  Environment:
+    Type: String
+    Default: test
+    AllowedPattern: '^[a-z0-9-]{1,32}$'
+    ConstraintDescription: lowercase letters, digits or hyphen (e.g. test, prod)
+    Description: Environment name (also the value of the Environment tag)
+  MaxConcurrency:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    Description: Reserved concurrency of the function; 0 = no reservation (new accounts often cannot reserve any)
+  BudgetEmail:
+    Type: String
+    Default: ''
+    Description: E-mail of the monthly budget alert (80% of BudgetAmount); empty = no budget
+  BudgetAmount:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    Description: Monthly budget in USD (used only with BudgetEmail)
+  ConfigurationHash:
+    Type: String
+    Default: ''
+    Description: >-
+      Hash of the configuration (set by scripts/deploy.sh). A new value publishes a new version of the function, so a
+      change only of parameters (administrators, client ID...) reaches the alias called by the API
+  DataTableDeletionPolicy:
+    Type: String
+    Default: Delete
+    AllowedValues: [Delete, Retain]
+    Description: What happens to the data table (groups, members, links) when the stack is deleted
+
+Conditions:
+  HasMaxConcurrency: !Not [!Equals [!Ref MaxConcurrency, 0]]
+  HasBudget: !Not [!Equals [!Ref BudgetEmail, '']]
+
+Globals:
+  Function:
+    Runtime: java21
+    Architectures: [arm64]
+    MemorySize: 1024
+    Timeout: 29          # below the 30 s of the HTTP API, so the limit also shows up locally
+    Environment:
+      Variables:
+        DATA_TABLE: !Ref DataTable
+        EPHEMERAL_TABLE: !Ref EphemeralTable
+        DYNAMODB_ENDPOINT: ''
+        GITHUB_CLIENT_ID: !Ref GitHubClientId
+        GITHUB_CLIENT_SECRET: ''
+        GITHUB_CLIENT_SECRET_PARAMETER: !Ref GitHubClientSecretParameter
+        GITHUB_BASE_URL: https://github.com
+        GITHUB_API_URL: https://api.github.com
+        GRADE_CHECKER_ADMINS: !Ref GradeCheckerAdmins
+        GCACHE_ENABLED: 'true'
+        GCACHE_TTL_SECONDS: !Ref CacheTtlSeconds
+        GCACHE_MAX_SIZE: '10000'
+        GH_DASHBOARD_MAX_COMMITS: !Ref DashboardMaxCommits
+        JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1
+
+Resources:
+
+  # ------------------------------------------------------------------------------------------------ API
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 20
+        ThrottlingBurstLimit: 40
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      FunctionName: !Sub ${AWS::StackName}-api     # fixed name: its log group below keeps the logs for 14 days
+      Handler: br.com.gradechecker.lambda.ApplicationHandler::handleRequest
+      Description: Grade Checker API (/api/*)
+      AutoPublishAlias: live
+      # a new version (and SnapStart snapshot) when the template of the function changes (AllProperties) or when only
+      # parameter values change (ConfigurationHash, resolved with the real values): without it, the alias called by
+      # the API would keep the version with the old environment variables
+      AutoPublishAliasAllProperties: true
+      AutoPublishCodeSha256: !Ref ConfigurationHash
+      ReservedConcurrentExecutions: !If [HasMaxConcurrency, !Ref MaxConcurrency, !Ref AWS::NoValue]
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EphemeralTable
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${GitHubClientSecretParameter}
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/{proxy+}
+            Method: ANY
+
+  ApiFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-api
+      RetentionInDays: 14
+
+  # ------------------------------------------------------------------------------------------------ data
+
+  # groups, repository URLs, members, manual identity links, group id counter
+  DataTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: !Ref DataTableDeletionPolicy
+    UpdateReplacePolicy: !Ref DataTableDeletionPolicy
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+        - { AttributeName: SK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+        - { AttributeName: SK, KeyType: RANGE }
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # sessions, OAuth state and GitHub cache, deleted by the TTL
+  EphemeralTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  # ------------------------------------------------------------------------------------------------ SPA
+
+  # private bucket: read only by CloudFront (OAC); files sent by scripts/deploy.sh (emptied by scripts/destroy.sh)
+  SpaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  SpaOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${AWS::StackName}-spa
+        Description: CloudFront access to the SPA bucket of Grade Checker
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SpaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SpaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CloudFrontReadsTheSpa
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub ${SpaBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+          # without ListBucket, S3 answers 403 for a missing file; with it, 404 (the root / never reaches S3 as a
+          # listing: the function turns it into /index.html)
+          - Sid: CloudFrontGets404ForMissingFiles
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:ListBucket
+            Resource: !GetAtt SpaBucket.Arn
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+
+  # routes of the SPA (/home, /detail?id=3, /grades...) are not files: they get /index.html, like the local nginx.conf.
+  # The old JSP URLs (/detail.jsp, /authentication.jsp) are SPA routes too. Files (any other extension) pass unchanged.
+  # Only on the S3 behavior, so the errors of /api/* are never replaced.
+  SpaRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${AWS::StackName}-spa-routes
+      AutoPublish: true
+      FunctionConfig:
+        Comment: SPA routes without a file extension are served by /index.html
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var last = request.uri.split('/').pop();
+          if (last.indexOf('.') === -1 || /\.jsp$/.test(last)) {
+            request.uri = '/index.html';
+          }
+          return request;
+        }
+
+  # ------------------------------------------------------------------------------------------------ CloudFront
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub Grade Checker (${AWS::StackName})
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        DefaultRootObject: index.html
+        Origins:
+          - Id: spa
+            DomainName: !GetAtt SpaBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt SpaOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+          - Id: api
+            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: spa
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6          # Managed-CachingOptimized
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRewriteFunction.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad        # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+
+  # ------------------------------------------------------------------------------------------------ cost
+
+  Budget:
+    Type: AWS::Budgets::Budget
+    Condition: HasBudget
+    Properties:
+      Budget:
+        BudgetName: !Sub ${AWS::StackName}-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref BudgetAmount
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+
+Outputs:
+  AppUrl:
+    Description: URL of Grade Checker (SPA and /api on the same domain)
+    Value: !Sub https://${Distribution.DomainName}
+  CallbackUrl:
+    Description: Callback URL of the production GitHub App (first in the list)
+    Value: !Sub https://${Distribution.DomainName}/api/auth/callback
+  ApiUrl:
+    Description: Base URL of the HTTP API (routes under /api); use AppUrl in the browser
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  SpaBucketName:
+    Description: Bucket of the SPA files (scripts/deploy.sh)
+    Value: !Ref SpaBucket
+  DistributionId:
+    Description: CloudFront distribution (cache invalidation)
+    Value: !Ref Distribution
+  DataTableName:
+    Value: !Ref DataTable
+  EphemeralTableName:
+    Value: !Ref EphemeralTable

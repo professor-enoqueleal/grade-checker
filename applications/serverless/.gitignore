@@ -1,0 +1,4 @@
+# local configuration of docker compose (GitHub App client secret)
+.env
+# build output of sam build (template.yaml is in this folder)
+.aws-sam/

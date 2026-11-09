@@ -1,0 +1,105 @@
+# Release of the serverless version (applications/serverless, capability serverless-delivery): tag serverless-vX.Y.Z and
+# a GitHub Release with serverless-build.zip (.aws-sam/build of sam build and the dist/ of the SPA), built and tested
+# once here and deployed as is by serverless-deploy.yml. Manual trigger only, from main:
+#   gh workflow run serverless-release.yml --ref main -f version=1.0.0
+# The Release is never marked Latest: Latest stays the monolith release used by the EC2 template.
+name: Release serverless version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (X.Y.Z). Creates the tag serverless-vX.Y.Z."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: applications/serverless
+
+concurrency:
+  group: release-serverless
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+    # first: the default working-directory (defaults.run) exists only after the checkout
+    - uses: actions/checkout@v4
+
+    - name: Check branch and version
+      run: |
+        if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+          echo "::error::run this workflow from main (got $GITHUB_REF)"; exit 1
+        fi
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::version must be X.Y.Z (got '$VERSION')"; exit 1
+        fi
+        echo "TAG=serverless-v$VERSION" >> "$GITHUB_ENV"
+
+    - name: Tag must not exist
+      run: |
+        if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+          echo "::error::tag $TAG already exists; a published version never changes"; exit 1
+        fi
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Set up Node 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: applications/serverless/spa/package-lock.json
+
+    - name: Set up AWS SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+
+    # grade-checker-core of this commit, no GitHub Packages token
+    - name: Build and install grade-checker-core
+      run: mvn -B install --file ../library-core/pom.xml
+
+    - name: Lambda - unit tests
+      working-directory: applications/serverless/lambda
+      run: mvn -B test
+
+    - name: SPA - install, typecheck, tests and build
+      working-directory: applications/serverless/spa
+      run: |
+        npm ci --no-audit --no-fund
+        npm run typecheck
+        npm test
+        npm run build
+
+    - name: Lambda - sam build
+      run: |
+        sam build
+        test -f .aws-sam/build/template.yaml
+
+    - name: Package serverless-build.zip
+      run: |
+        zip -qr serverless-build.zip .aws-sam/build spa/dist
+        unzip -l serverless-build.zip | tail -1
+
+    - name: Create tag and release with the build
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "$TAG" serverless-build.zip \
+          --target "$GITHUB_SHA" \
+          --title "$TAG" \
+          --notes "Serverless version $VERSION (Lambda + SPA). Deploy: gh workflow run serverless-deploy.yml --ref main -f version=$VERSION" \
+          --latest=false

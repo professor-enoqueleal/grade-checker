@@ -80,6 +80,7 @@ O template `grade-checker-ec2.yaml` (em `applications/monolith`) cria uma EC2 (A
 | `DashboardMaxCommits` | `GH_DASHBOARD_MAX_COMMITS` | não (padrão `1000`) |
 | `ReleaseRepository` | — | não (padrão `professor-enoqueleal/grade-checker`) |
 | `ReleaseVersion` | — | não (`latest` ou `vX.Y.Z`; padrão `latest`) |
+| `Environment` | — (tag) | não (padrão `test`) |
 
 Parâmetros opcionais vazios não são escritos no arquivo `/etc/grade-checker/grade-checker.env`, e a aplicação usa o padrão. O banco H2 fica na instância (`/var/lib/grade-checker/h2db`).
 
@@ -95,6 +96,11 @@ aws cloudformation create-stack --stack-name grade-checker \
   ```bash
   sudo vi /etc/grade-checker/grade-checker.env
   sudo systemctl restart grade-checker
+  ```
+- **Tags:** todos os recursos que aceitam tag (segredos, role, security group, instância e o disco dela, Elastic IP) recebem `Application=grade-checker`, `Component=monolith`, `Environment=<Environment>`, `ManagedBy=cloudformation` e `Repository=professor-enoqueleal/grade-checker`. Para listar: `aws resourcegroupstaggingapi get-resources --tag-filters Key=Application,Values=grade-checker Key=Component,Values=monolith`. Para usar as tags nos relatórios de custo (Cost Explorer), ative-as uma única vez; elas valem da ativação em diante e aparecem em até 24 horas:
+  ```bash
+  aws ce update-cost-allocation-tags-status --cost-allocation-tags-status \
+    TagKey=Application,Status=Active TagKey=Component,Status=Active TagKey=Environment,Status=Active
   ```
 - **Login com GitHub na EC2:** a primeira callback URL do GitHub App precisa ser a do output `OAuthCallbackUrl` da stack. Depois, volte a de localhost para o topo.
 

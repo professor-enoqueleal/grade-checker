@@ -1,0 +1,20 @@
+/* shared styles (were in css/style.css and in each JSP) */
+.bi { vertical-align: -.125em; fill: currentColor; }
+
+/* loading spinner of the dashboard */
+.gc-loader {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-radius: 50%;
+  border-top: 5px solid #3498db;
+  animation: gc-spin 1s linear infinite;
+  margin: 1.5rem auto;
+}
+@keyframes gc-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* bar charts: the height follows the number of bars */
+.chart-box { position: relative; width: 100%; min-height: 160px; }

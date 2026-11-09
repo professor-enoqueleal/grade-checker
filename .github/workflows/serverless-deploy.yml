@@ -1,0 +1,101 @@
+# Deploy of a serverless Release to AWS (capability serverless-delivery): the serverless-build.zip of the Release
+# serverless-vX.Y.Z is deployed as is (stack with tags, SPA, CloudFront invalidation, seed) by scripts/deploy.sh.
+# AWS access: role assumed by OIDC (template applications/serverless/github-oidc.yaml); no AWS key in the repository.
+# Manual trigger only, from main:
+#   gh workflow run serverless-deploy.yml --ref main -f version=1.0.0
+# Repository variables (Settings > Secrets and variables > Actions > Variables; GitHub reserves the prefix GITHUB_):
+#   AWS_DEPLOY_ROLE_ARN (required), APP_CLIENT_ID (required), APP_ADMINS, APP_ENVIRONMENT (default test),
+#   BUDGET_EMAIL. The client secret stays in the SSM parameter /grade-checker/github-client-secret.
+name: Deploy serverless version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release to deploy (X.Y.Z, the tag serverless-vX.Y.Z)"
+        required: true
+        type: string
+
+permissions:
+  id-token: write     # OIDC token for the AWS role
+  contents: read
+
+concurrency:
+  group: deploy-serverless
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      AWS_REGION: us-east-1
+    steps:
+    - name: Check version and release (before touching AWS)
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        APP_CLIENT_ID: ${{ vars.APP_CLIENT_ID }}
+      run: |
+        if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+          echo "::error::run this workflow from main (got $GITHUB_REF)"; exit 1
+        fi
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::version must be X.Y.Z (got '$VERSION')"; exit 1
+        fi
+        TAG="serverless-v$VERSION"
+        if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -qx serverless-build.zip; then
+          echo "::error::release $TAG does not exist or has no serverless-build.zip"; exit 1
+        fi
+        if [ -z "$ROLE_ARN" ] || [ -z "$APP_CLIENT_ID" ]; then
+          echo "::error::set the repository variables AWS_DEPLOY_ROLE_ARN and APP_CLIENT_ID"; exit 1
+        fi
+        echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+    # the scripts and the seed of the same version as the build
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ env.TAG }}
+
+    - name: Download and unpack the build of the release
+      working-directory: applications/serverless
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern serverless-build.zip
+        unzip -q serverless-build.zip
+        test -f .aws-sam/build/template.yaml && test -f spa/dist/index.html
+
+    - name: Set up JDK 21 (seed)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Set up AWS SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+
+    # grade-checker-core of the released commit, used by the seed (mvn exec)
+    - name: Install grade-checker-core
+      working-directory: applications/library-core
+      run: mvn -B -q install -DskipTests
+
+    - name: AWS credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        aws-region: us-east-1
+        role-session-name: grade-checker-serverless-deploy
+
+    - name: Deploy (stack, SPA, invalidation, seed)
+      working-directory: applications/serverless
+      env:
+        SKIP_BUILD: '1'
+        APP_CLIENT_ID: ${{ vars.APP_CLIENT_ID }}
+        GRADE_CHECKER_ADMINS: ${{ vars.APP_ADMINS }}
+        ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'test' }}
+        BUDGET_EMAIL: ${{ vars.BUDGET_EMAIL }}
+      run: sh scripts/deploy.sh

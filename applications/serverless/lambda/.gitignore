@@ -1,0 +1,6 @@
+target/
+.aws-sam/
+# local variables with secrets (GitHub App client secret): copy env.local.example.json
+env.local.json
+# cookie jar of the curl examples in README.md (session cookie)
+cookies.txt

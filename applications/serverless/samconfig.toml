@@ -1,0 +1,27 @@
+# AWS SAM CLI configuration, run from applications/serverless (where template.yaml is).
+# Local: sam build, sam local start-api, sam local invoke. AWS: scripts/deploy.sh (it adds the parameters and the tags).
+version = 0.1
+
+[default.global.parameters]
+stack_name = "grade-checker-serverless"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.local_start_api.parameters]
+env_vars = "lambda/env.local.json"
+docker_network = "grade-checker-local"
+warm_containers = "EAGER"
+port = 3000
+
+[default.local_invoke.parameters]
+env_vars = "lambda/env.local.json"
+docker_network = "grade-checker-local"
+
+[default.deploy.parameters]
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+resolve_s3 = true
+confirm_changeset = false
+fail_on_empty_changeset = false

@@ -101,3 +101,9 @@ applications/monolith/e2e/.tmp/
 
 # local secrets for docker run --env-file
 applications/monolith/.env.local
+
+##############################
+## OpenSpec (specs, changes and plans): kept local, not versioned for now
+##############################
+/openspec/
+applications/*/openspec/

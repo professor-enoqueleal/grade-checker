@@ -1,0 +1,95 @@
+# Grade Checker serverless, everything local with one command (capability local-compose):
+#   docker compose up --build        -> http://localhost:5173
+# SPA (nginx, like CloudFront) -> gateway (like the HTTP API) -> Lambda (official AWS image, Runtime Interface
+# Emulator) -> DynamoDB Local (data kept in the volume dynamodb-data; `docker compose down -v` deletes it).
+# Configuration: .env (copy .env.example). Host ports: SPA_PORT (5173), GATEWAY_PORT (3000), DYNAMODB_PORT (8000);
+# the E2E suite (serverless/e2e) runs its own project, grade-checker-e2e, on other ports. The SAM path
+# (sam local start-api) keeps working, but not at the same time as the default ports: both use 3000 and 8000.
+name: grade-checker
+
+x-tables: &tables
+  DATA_TABLE: grade-checker-data
+  EPHEMERAL_TABLE: grade-checker-ephemeral
+  DYNAMODB_ENDPOINT: http://dynamodb:8000
+  AWS_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: local
+  AWS_SECRET_ACCESS_KEY: local
+
+services:
+  dynamodb:
+    image: amazon/dynamodb-local:2.5.2
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data
+    user: root                     # the named volume belongs to root
+    volumes:
+      - dynamodb-data:/home/dynamodblocal/data
+    ports:
+      - "${DYNAMODB_PORT:-8000}:8000"
+
+  # creates the missing tables and runs the seed, then exits; the api starts after it
+  setup:
+    build:
+      context: lambda
+      additional_contexts:
+        core: ../library-core      # grade-checker-core, compiled inside the image (no token for this version)
+      secrets:
+        - maven_settings           # only for a version of grade-checker-core that is not the one in core/
+    entrypoint: ["/var/lang/bin/java", "-cp", "/var/task:/var/task/lib/*", "br.com.gradechecker.tools.LocalSetup"]
+    environment:
+      <<: *tables
+    depends_on:
+      - dynamodb
+    restart: "no"
+
+  # the Lambda (same handler as template.yaml), invoked by the gateway
+  api:
+    build:
+      context: lambda
+      additional_contexts:
+        core: ../library-core      # grade-checker-core, compiled inside the image (no token for this version)
+      secrets:
+        - maven_settings           # only for a version of grade-checker-core that is not the one in core/
+    environment:
+      <<: *tables
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_BASE_URL: https://github.com
+      GITHUB_API_URL: https://api.github.com
+      GRADE_CHECKER_ADMINS: ${GRADE_CHECKER_ADMINS:-}
+      GCACHE_ENABLED: "true"
+      GCACHE_TTL_SECONDS: "600"
+      GCACHE_MAX_SIZE: "10000"
+      GH_DASHBOARD_MAX_COMMITS: "1000"
+      AWS_LAMBDA_FUNCTION_TIMEOUT: "29"
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "1024"
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+  # stand-in for the API Gateway HTTP API: request -> payload 2.0 event -> Lambda -> response
+  gateway:
+    image: node:22-alpine
+    command: ["node", "/app/server.js"]
+    volumes:
+      - ./local/gateway:/app:ro
+    environment:
+      LAMBDA_URL: http://api:8080/2015-03-31/functions/function/invocations
+    ports:
+      - "${GATEWAY_PORT:-3000}:3000"   # also used by `npm run dev` in frontend/
+    depends_on:
+      - api
+
+  # production build of the SPA in nginx (index.html for the SPA routes, /api to the gateway)
+  spa:
+    build: spa
+    ports:
+      - "${SPA_PORT:-5173}:80"
+    depends_on:
+      - gateway
+
+volumes:
+  dynamodb-data:
+
+secrets:
+  # ~/.m2/settings.xml with a read:packages token (server id "github"); an empty file is used when it does not exist
+  maven_settings:
+    file: ${MAVEN_SETTINGS:-./local/empty-settings.xml}

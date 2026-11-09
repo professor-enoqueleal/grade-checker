@@ -1,0 +1,18 @@
+{
+  "version": "2.0",
+  "routeKey": "ANY /api/{proxy+}",
+  "rawPath": "/api/me",
+  "rawQueryString": "",
+  "headers": { "accept": "application/json", "x-requested-with": "XMLHttpRequest" },
+  "requestContext": {
+    "accountId": "local",
+    "apiId": "local",
+    "http": { "method": "GET", "path": "/api/me", "protocol": "HTTP/1.1", "sourceIp": "127.0.0.1", "userAgent": "curl" },
+    "requestId": "local-request",
+    "routeKey": "ANY /api/{proxy+}",
+    "stage": "$default",
+    "time": "08/Nov/2026:12:00:00 +0000",
+    "timeEpoch": 1794139200000
+  },
+  "isBase64Encoded": false
+}

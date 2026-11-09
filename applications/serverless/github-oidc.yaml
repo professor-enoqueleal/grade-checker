@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Grade Checker serverless - AWS role assumed by GitHub Actions through OIDC (workflow serverless-deploy.yml), so the
+  repository keeps no AWS access key. Only workflows of the branch main of the repository can assume it. Applied once
+  by the administrator (capability serverless-delivery):
+    aws cloudformation deploy --stack-name grade-checker-github-deploy --template-file github-oidc.yaml
+      --capabilities CAPABILITY_NAMED_IAM --tags Application=grade-checker Component=deploy Environment=test
+      ManagedBy=cloudformation Repository=professor-enoqueleal/grade-checker
+
+Parameters:
+  GitHubRepository:
+    Type: String
+    Default: professor-enoqueleal/grade-checker
+    AllowedPattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+    Description: owner/repository allowed to assume the role
+  Branch:
+    Type: String
+    Default: main
+    Description: Only workflows started from this branch can assume the role
+  CreateOidcProvider:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      true creates the OIDC provider of GitHub (token.actions.githubusercontent.com). Use false when the account
+      already has it (an account can have only one provider per URL)
+  AppStackName:
+    Type: String
+    Default: grade-checker-serverless
+    Description: Name of the application stack the role deploys (permissions are limited to its resources)
+  Environment:
+    Type: String
+    Default: test
+    AllowedPattern: '^[a-z0-9-]{1,32}$'
+    Description: Value of the Environment tag
+
+Conditions:
+  CreateProvider: !Equals [!Ref CreateOidcProvider, 'true']
+
+Resources:
+
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      Tags:
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: deploy }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
+
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AppStackName}-github-deploy
+      Description: Deploy of Grade Checker serverless by GitHub Actions (OIDC, branch main only)
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateProvider
+                - !Ref GitHubOidcProvider
+                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:ref:refs/heads/${Branch}
+      Policies:
+        - PolicyName: deploy-grade-checker-serverless
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # stack of the application, the SAM artifacts stack and the two transforms of the template
+              - Sid: CloudFormation
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ListStackResources
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppStackName}/*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/aws-sam-cli-managed-default/*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/LanguageExtensions
+              - Sid: CloudFormationRead
+                Effect: Allow
+                Action: [cloudformation:ValidateTemplate, cloudformation:ListStacks]
+                Resource: '*'
+              # artifacts bucket of SAM (resolve_s3) and the SPA bucket of the stack
+              - Sid: Buckets
+                Effect: Allow
+                Action: s3:*
+                Resource:
+                  - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-*
+                  - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-*/*
+                  - !Sub arn:${AWS::Partition}:s3:::${AppStackName}-spabucket-*
+                  - !Sub arn:${AWS::Partition}:s3:::${AppStackName}-spabucket-*/*
+              - Sid: Lambda
+                Effect: Allow
+                Action: lambda:*
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${AppStackName}-*
+              - Sid: DynamoDB
+                Effect: Allow
+                Action: dynamodb:*
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AppStackName}-*
+              - Sid: Logs
+                Effect: Allow
+                Action: logs:*
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AppStackName}-*
+              # only the roles of the stack (the role of the function, created by SAM)
+              - Sid: StackRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:UpdateRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:ListRoleTags
+                  - iam:PassRole
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AppStackName}-*
+              # API Gateway and CloudFront do not allow limiting these actions to one stack by name
+              - Sid: ApiGateway
+                Effect: Allow
+                Action: [apigateway:GET, apigateway:POST, apigateway:PUT, apigateway:PATCH, apigateway:DELETE]   # tags of API Gateway use these verbs too
+                Resource: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/*
+              - Sid: CloudFront
+                Effect: Allow
+                Action: cloudfront:*
+                Resource: '*'
+              - Sid: Budget
+                Effect: Allow
+                Action: [budgets:ViewBudget, budgets:ModifyBudget]
+                Resource: !Sub arn:${AWS::Partition}:budgets::${AWS::AccountId}:budget/${AppStackName}-*
+              # deploy.sh checks that the parameter of the client secret exists (never reads its value)
+              - Sid: ReadOnly
+                Effect: Allow
+                Action: [ssm:DescribeParameters, sts:GetCallerIdentity, iam:ListRoles]
+                Resource: '*'
+      Tags:
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: deploy }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
+
+Outputs:
+  RoleArn:
+    Description: Value of the repository variable AWS_DEPLOY_ROLE_ARN
+    Value: !GetAtt DeployRole.Arn

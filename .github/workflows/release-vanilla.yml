@@ -1,0 +1,65 @@
+# Publishes a version of the application (capability vanilla-release): tag vX.Y.Z, GitHub Release and grade-checker.war.
+# Manual trigger only: Actions > "Release vanilla version" > Run workflow (branch main), or
+#   gh workflow run release-vanilla.yml --ref main -f version=1.0.1
+# A published version never changes: a fix is a new version. The CI build of each push stays in maven.yml.
+name: Release vanilla version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (X.Y.Z). Creates the tag vX.Y.Z."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-vanilla
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+    - name: Check branch and version
+      run: |
+        if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+          echo "::error::run this workflow from main (got $GITHUB_REF)"; exit 1
+        fi
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::version must be X.Y.Z (got '$VERSION')"; exit 1
+        fi
+        echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+
+    - uses: actions/checkout@v4
+
+    - name: Tag must not exist
+      run: |
+        if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+          echo "::error::tag $TAG already exists; a published version never changes"; exit 1
+        fi
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build and test
+      run: |
+        mvn -B package --file pom.xml
+        test -f target/grade-checker.war
+
+    - name: Create tag, release and attach the WAR
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "$TAG" target/grade-checker.war \
+          --target "$GITHUB_SHA" \
+          --title "$TAG — vanilla version" \
+          --generate-notes

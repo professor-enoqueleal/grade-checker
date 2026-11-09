@@ -18,6 +18,8 @@ Metadata:
         Parameters: [ReleaseRepository, ReleaseVersion, JettyVersion]
       - Label: { default: Network and instance }
         Parameters: [VpcId, SubnetId, InstanceType, HttpCidr, SshCidr, KeyName, LatestAmiId]
+      - Label: { default: Tags (reports and cost allocation) }
+        Parameters: [Environment]
 
 Parameters:
   GitHubBaseUrl:
@@ -163,6 +165,15 @@ Parameters:
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
     Description: Amazon Linux 2023 AMI (resolved from the public SSM parameter).
 
+  Environment:
+    Type: String
+    Default: test
+    AllowedPattern: '^[a-z0-9-]{1,32}$'
+    ConstraintDescription: lowercase letters, digits or hyphen (e.g. test, prod)
+    Description: >-
+      Value of the Environment tag. Every resource that supports tags gets Application=grade-checker,
+      Component=monolith, Environment, ManagedBy=cloudformation and Repository (reports and cost allocation).
+
 Conditions:
   HasKeyName: !Not [!Equals [!Ref KeyName, '']]
   HasSshCidr: !Not [!Equals [!Ref SshCidr, '']]
@@ -176,6 +187,12 @@ Resources:
       Name: !Sub '${AWS::StackName}/github-client-secret'
       Description: GITHUB_CLIENT_SECRET used by Grade Checker
       SecretString: !Ref GitHubClientSecret
+      Tags:
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: monolith }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
 
   CacheAdminSecretValue:
     Type: AWS::SecretsManager::Secret
@@ -184,6 +201,12 @@ Resources:
       Name: !Sub '${AWS::StackName}/cache-admin-secret'
       Description: GCACHE_ADMIN_SECRET (token of the /admin/cache API) used by Grade Checker
       SecretString: !Ref CacheAdminSecret
+      Tags:
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: monolith }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
 
   InstanceRole:
     Type: AWS::IAM::Role
@@ -206,8 +229,14 @@ Resources:
                 Resource:
                   - !Ref GitHubClientSecretValue
                   - !If [HasCacheAdminSecret, !Ref CacheAdminSecretValue, !Ref AWS::NoValue]
+      Tags:
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: monolith }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
 
-  InstanceProfile:
+  InstanceProfile:   # AWS::IAM::InstanceProfile does not support tags
     Type: AWS::IAM::InstanceProfile
     Properties:
       Roles: [!Ref InstanceRole]
@@ -233,6 +262,11 @@ Resources:
           - !Ref AWS::NoValue
       Tags:
         - { Key: Name, Value: !Sub '${AWS::StackName}-sg' }
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: monolith }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
 
   Instance:
     Type: AWS::EC2::Instance
@@ -250,6 +284,7 @@ Resources:
           SubnetId: !Ref SubnetId
           GroupSet: [!Ref SecurityGroup]
           AssociatePublicIpAddress: true
+      PropagateTagsToVolumeOnCreation: true   # the root EBS volume gets the instance tags
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -259,6 +294,11 @@ Resources:
             DeleteOnTermination: true
       Tags:
         - { Key: Name, Value: !Sub '${AWS::StackName}' }
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: monolith }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
       UserData:
         Fn::Base64: !Sub
           - |
@@ -424,6 +464,11 @@ Resources:
       InstanceId: !Ref Instance   # stable address across stop/start (needed by the OAuth callback URL)
       Tags:
         - { Key: Name, Value: !Sub '${AWS::StackName}-eip' }
+        - { Key: Application, Value: grade-checker }
+        - { Key: Component, Value: monolith }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Repository, Value: professor-enoqueleal/grade-checker }
 
 Outputs:
   ApplicationUrl:

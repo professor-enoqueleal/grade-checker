@@ -57,6 +57,10 @@ Resources:
 
   DeployRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks: [W3037]   # apigateway:TagResource/UntagResource exist and are needed (see the ApiGateway statement)
     Properties:
       RoleName: !Sub ${AppStackName}-github-deploy
       Description: Deploy of Grade Checker serverless by GitHub Actions (OIDC, branch main only)
@@ -149,7 +153,9 @@ Resources:
               # API Gateway and CloudFront do not allow limiting these actions to one stack by name
               - Sid: ApiGateway
                 Effect: Allow
-                Action: [apigateway:GET, apigateway:POST, apigateway:PUT, apigateway:PATCH, apigateway:DELETE]   # tags of API Gateway use these verbs too
+                # TagResource/UntagResource: required to tag the HTTP API stage (cfn-lint W3037 does not know them;
+                # the deploy failed with AccessDenied on apigateway:TagResource without them)
+                Action: [apigateway:GET, apigateway:POST, apigateway:PUT, apigateway:PATCH, apigateway:DELETE, apigateway:TagResource, apigateway:UntagResource]
                 Resource: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/*
               - Sid: CloudFront
                 Effect: Allow

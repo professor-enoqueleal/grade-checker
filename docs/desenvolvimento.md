@@ -1,5 +1,7 @@
 # Desenvolvimento
 
+O monolith (versão Jetty) fica em `applications/monolith`, e os comandos abaixo rodam nessa pasta. O domínio, as regras da nota e o cliente do GitHub vêm da library `grade-checker-core`, em `applications/library-core`.
+
 ## Variáveis de ambiente
 
 Linux e macOS:
@@ -27,8 +29,11 @@ Sem `GRADE_CHECKER_ADMINS`, ninguém vê membros, associações nem as notas da 
 O uso padrão é **na sua máquina, em `http://localhost:8080`**:
 
 ```shell
-sh ./mvnw jetty:run        # ou rode pelo IntelliJ (Jetty na porta 8080)
+sh ./mvnw -f ../library-core/pom.xml install   # a library (uma vez, e de novo depois de mudar applications/library-core)
+sh ./mvnw jetty:run                            # ou rode pelo IntelliJ (Jetty na porta 8080)
 ```
+
+O CI, o Docker e o workflow de release compilam a library sozinhos. Só o desenvolvimento local precisa desse `install`.
 
 Se o *maven wrapper* não tiver permissão de execução:
 
@@ -60,6 +65,14 @@ Os testes precisam que os módulos não nomeados acessem o pacote `java.util`. N
 ```
 
 A aplicação em si (IntelliJ e Docker) não precisa dessa opção.
+
+### Testes E2E
+
+Há uma suíte Playwright em `applications/monolith/e2e` (veja o `README.md` dela). Por padrão, ela sobe a própria instância com `mvn jetty:run` e um banco H2 isolado, então a library precisa estar instalada (veja [Executar localmente](#executar-localmente)):
+
+```bash
+cd e2e && npm install && npm run test:local
+```
 
 ## Navbar
 

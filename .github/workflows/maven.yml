@@ -1,22 +1,32 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
+# CI of the monolith (applications/monolith, Jetty version): build and unit tests on every push and pull request to main.
+# The README badge points to this workflow. It runs only when the monolith, the library it uses
+# (applications/library-core) or this file change.
 name: Java CI with Maven
 
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - "applications/monolith/**"
+      - "applications/library-core/**"
+      - ".github/workflows/maven.yml"
   pull_request:
     branches: [ "main" ]
+    paths:
+      - "applications/monolith/**"
+      - "applications/library-core/**"
+      - ".github/workflows/maven.yml"
+
+permissions:
+  contents: read
+  packages: read      # grade-checker-core in GitHub Packages, for a version that is not the one in applications/library-core
+
+defaults:
+  run:
+    working-directory: applications/monolith
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -27,5 +37,15 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
+        server-id: github                 # ~/.m2/settings.xml for GitHub Packages (grade-checker-core)
+        server-username: GITHUB_ACTOR
+        server-password: GITHUB_TOKEN
+    # grade-checker-core (applications/library-core) is built, tested and installed first, so the monolith uses the
+    # library of this commit. A version that is not the one in applications/library-core comes from GitHub Packages
+    # with the GITHUB_TOKEN (server id "github" above, "packages: read" in permissions).
+    - name: Build and install grade-checker-core
+      run: mvn -B install --file ../library-core/pom.xml
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn -B package
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

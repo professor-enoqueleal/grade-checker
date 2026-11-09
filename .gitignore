@@ -21,9 +21,8 @@ pom.xml.bak
 release.properties
 dependency-reduced-pom.xml
 buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
-mvnw
+applications/monolith/.mvn/timing.properties
+applications/monolith/.mvn/wrapper/maven-wrapper.jar
 
 ##############################
 ## Gradle
@@ -94,11 +93,11 @@ nb-configuration.xml
 ##############################
 ## E2E (Playwright)
 ##############################
-e2e/node_modules/
-e2e/test-results/
-e2e/playwright-report/
-e2e/.auth/
-e2e/.tmp/
+applications/monolith/e2e/node_modules/
+applications/monolith/e2e/test-results/
+applications/monolith/e2e/playwright-report/
+applications/monolith/e2e/.auth/
+applications/monolith/e2e/.tmp/
 
 # local secrets for docker run --env-file
-.env.local
+applications/monolith/.env.local

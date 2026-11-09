@@ -1,0 +1,456 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Grade Checker on a single EC2 instance (Amazon Linux 2023): installs Java 17 (Corretto), downloads the
+  grade-checker.war of a GitHub Release (published by the "Release vanilla version" workflow), deploys it
+  as ROOT on Jetty 11 and runs Jetty as a systemd service, so the application comes back automatically when
+  the instance is stopped and started again. Nothing is cloned or built on the instance.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: GitHub OAuth (exposed to the application) }
+        Parameters: [GitHubBaseUrl, GitHubClientId, GitHubClientSecret]
+      - Label: { default: Administration (optional) }
+        Parameters: [GradeCheckerAdmins, CacheAdminSecret]
+      - Label: { default: Application tuning (optional - empty keeps the application default) }
+        Parameters: [GitHubApiUrl, CacheEnabled, CacheTtlSeconds, CacheMaxSize, DashboardMaxCommits]
+      - Label: { default: Application release }
+        Parameters: [ReleaseRepository, ReleaseVersion, JettyVersion]
+      - Label: { default: Network and instance }
+        Parameters: [VpcId, SubnetId, InstanceType, HttpCidr, SshCidr, KeyName, LatestAmiId]
+
+Parameters:
+  GitHubBaseUrl:
+    Type: String
+    Default: https://github.com
+    AllowedPattern: '^https://\S+[^/]$'
+    ConstraintDescription: must be an https URL without a trailing slash (e.g. https://github.com)
+    Description: GITHUB_BASE_URL - base URL of GitHub used for the OAuth token exchange.
+
+  GitHubClientId:
+    Type: String
+    AllowedPattern: '^[A-Za-z0-9._-]+$'
+    ConstraintDescription: letters, digits, dot, underscore or hyphen
+    Description: GITHUB_CLIENT_ID - Client ID of the GitHub OAuth App / GitHub App.
+
+  GitHubClientSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 1
+    Description: >-
+      GITHUB_CLIENT_SECRET - Client secret of the GitHub App. Stored in AWS Secrets Manager
+      (never in the instance user data) and written to a root-only environment file on the instance.
+
+  GradeCheckerAdmins:
+    Type: String
+    Default: ''
+    AllowedPattern: '^[A-Za-z0-9, -]*$'
+    ConstraintDescription: GitHub logins separated by commas
+    Description: >-
+      Optional GRADE_CHECKER_ADMINS - GitHub logins (comma separated) of the platform administrators,
+      who manage the group members (Mark/Unmark, Manage members), link git identities to students and see
+      the class grades (/grades). Empty = nobody is administrator.
+
+  CacheAdminSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    AllowedPattern: '^$|^[A-Za-z0-9._~+/=-]{16,}$'
+    ConstraintDescription: empty, or at least 16 characters (letters, digits and . _ ~ + / = -)
+    Description: >-
+      Optional GCACHE_ADMIN_SECRET - token (X-ADMIN-TOKEN header) of the cache admin API /admin/cache.
+      Leave empty to keep the API closed (it answers 403). When set, it is stored in AWS Secrets Manager
+      and written to the root-only environment file, like GITHUB_CLIENT_SECRET.
+
+  GitHubApiUrl:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^https://\S+[^/]$'
+    ConstraintDescription: empty, or an https URL without a trailing slash (e.g. https://api.github.com)
+    Description: >-
+      Optional GITHUB_API_URL - GitHub REST API used to identify the signed-in user.
+      Empty = https://api.github.com (set it together with GitHubBaseUrl for GitHub Enterprise).
+
+  CacheEnabled:
+    Type: String
+    Default: ''
+    AllowedValues: ['', 'true', 'false']
+    Description: Optional GCACHE_ENABLED - in-memory cache of the GitHub calls. Empty = true.
+
+  CacheTtlSeconds:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[1-9][0-9]{0,6}$'
+    ConstraintDescription: empty, or a positive number of seconds
+    Description: >-
+      Optional GCACHE_TTL_SECONDS - expiration of the cache entries, in seconds. Empty = 60.
+      A longer TTL reduces the GitHub API usage (dashboard, /grades and the CSV share the cache).
+
+  CacheMaxSize:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[1-9][0-9]{0,8}$'
+    ConstraintDescription: empty, or a positive number of entries
+    Description: Optional GCACHE_MAX_SIZE - maximum number of cache entries. Empty = 10000.
+
+  DashboardMaxCommits:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[1-9][0-9]{0,6}$'
+    ConstraintDescription: empty, or a positive number of commits
+    Description: Optional GH_DASHBOARD_MAX_COMMITS - maximum number of commits read per repository and period. Empty = 1000.
+
+  ReleaseRepository:
+    Type: String
+    Default: professor-enoqueleal/grade-checker
+    AllowedPattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+    ConstraintDescription: owner/repository on GitHub
+    Description: >-
+      Public GitHub repository (owner/repository) whose Releases carry grade-checker.war
+      (workflow "Release vanilla version").
+
+  ReleaseVersion:
+    Type: String
+    Default: latest
+    AllowedPattern: '^(latest|v[0-9]+\.[0-9]+\.[0-9]+)$'
+    ConstraintDescription: latest, or a release tag vX.Y.Z
+    Description: >-
+      Release deployed on the first boot: a tag (e.g. v1.0.1) or latest (the Release marked Latest on GitHub).
+      Later versions are deployed on the instance with: sudo grade-checker-deploy vX.Y.Z
+
+  JettyVersion:
+    Type: String
+    Default: 11.0.26
+    AllowedPattern: '^11\.0\.\d+$'
+    ConstraintDescription: must be a Jetty 11 version (Jakarta EE 9 / Servlet 5, required by the application)
+    Description: Jetty 11 version downloaded from Maven Central (jetty-home).
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC of the instance.
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: PUBLIC subnet of the VPC (with a route to an Internet Gateway).
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.small, t3.medium, t3.large, t3a.small, t3a.medium, t3a.large, t3.xlarge]
+    Description: t3.small (2 GiB) or larger - Jetty runs with a 768 MiB heap; nothing is built on the instance.
+
+  HttpCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: '^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$'
+    Description: CIDR allowed to reach the application on port 80.
+
+  SshCidr:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$'
+    Description: >-
+      Optional CIDR allowed on port 22. Leave empty to disable SSH and use AWS Systems Manager
+      Session Manager instead (enabled by default through the instance role).
+
+  KeyName:
+    Type: String
+    Default: ''
+    Description: Optional EC2 key pair name for SSH. Leave empty to use Session Manager only.
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: Amazon Linux 2023 AMI (resolved from the public SSM parameter).
+
+Conditions:
+  HasKeyName: !Not [!Equals [!Ref KeyName, '']]
+  HasSshCidr: !Not [!Equals [!Ref SshCidr, '']]
+  HasCacheAdminSecret: !Not [!Equals [!Ref CacheAdminSecret, '']]
+
+Resources:
+
+  GitHubClientSecretValue:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AWS::StackName}/github-client-secret'
+      Description: GITHUB_CLIENT_SECRET used by Grade Checker
+      SecretString: !Ref GitHubClientSecret
+
+  CacheAdminSecretValue:
+    Type: AWS::SecretsManager::Secret
+    Condition: HasCacheAdminSecret
+    Properties:
+      Name: !Sub '${AWS::StackName}/cache-admin-secret'
+      Description: GCACHE_ADMIN_SECRET (token of the /admin/cache API) used by Grade Checker
+      SecretString: !Ref CacheAdminSecret
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore   # Session Manager access, no SSH needed
+      Policies:
+        - PolicyName: read-github-client-secret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref GitHubClientSecretValue
+                  - !If [HasCacheAdminSecret, !Ref CacheAdminSecretValue, !Ref AWS::NoValue]
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Grade Checker - HTTP (and optional SSH)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: HTTP
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref HttpCidr
+        - !If
+          - HasSshCidr
+          - Description: SSH
+            IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            CidrIp: !Ref SshCidr
+          - !Ref AWS::NoValue
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-sg' }
+
+  Instance:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT15M   # packages + WAR download + Jetty start
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref SubnetId
+          GroupSet: [!Ref SecurityGroup]
+          AssociatePublicIpAddress: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}' }
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            # Grade Checker bootstrap - runs once, on the first boot.
+            # Everything installed here survives stop/start; the systemd service brings the app back on every boot.
+            set -euo pipefail
+            exec > >(tee -a /var/log/grade-checker-setup.log) 2>&1
+
+            signal() { /opt/aws/bin/cfn-signal -e "$1" --reason "$2" --stack '${AWS::StackName}' --resource Instance --region '${AWS::Region}' || true; }
+            trap 'signal 1 "Grade Checker setup failed at line $LINENO - see /var/log/grade-checker-setup.log"' ERR
+
+            APP_USER=gradechecker
+            APP_HOME=/var/lib/grade-checker          # HOME of the service user: the H2 database (~/h2db)
+            CONF_DIR=/etc/grade-checker
+            JETTY_VERSION='${JettyVersion}'
+            JETTY_HOME=/opt/jetty-home
+            JETTY_BASE=/opt/jetty-base
+
+            echo "==> 1/8 packages: Java 17 (Corretto), cfn helper scripts"
+            dnf install -y java-17-amazon-corretto-headless aws-cfn-bootstrap tar gzip python3
+
+            echo "==> 2/8 JAVA_HOME"
+            JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")
+            echo "JAVA_HOME=$JAVA_HOME"
+            cat > /etc/profile.d/java.sh <<EOF
+            export JAVA_HOME=$JAVA_HOME
+            export PATH=\$JAVA_HOME/bin:\$PATH
+            EOF
+            chmod 644 /etc/profile.d/java.sh
+
+            echo "==> 3/8 service user"
+            id "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir "$APP_HOME" --shell /sbin/nologin "$APP_USER"
+
+            echo "==> 4/8 application environment (GITHUB_BASE_URL, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GRADE_CHECKER_ADMINS, optional settings)"
+            install -d -m 750 -o root -g "$APP_USER" "$CONF_DIR"
+            CLIENT_SECRET=$(aws secretsmanager get-secret-value --region '${AWS::Region}' \
+                --secret-id '${SecretArn}' --query SecretString --output text)
+            umask 027
+            cat > "$CONF_DIR/grade-checker.env" <<EOF
+            JAVA_HOME=$JAVA_HOME
+            GITHUB_BASE_URL=${GitHubBaseUrl}
+            GITHUB_CLIENT_ID=${GitHubClientId}
+            GITHUB_CLIENT_SECRET=$CLIENT_SECRET
+            GRADE_CHECKER_ADMINS=${GradeCheckerAdmins}
+            EOF
+            # optional settings: written only when informed, otherwise the application default applies
+            add_setting() { if [ -n "$2" ]; then echo "$1=$2" >> "$CONF_DIR/grade-checker.env"; echo "setting $1=$2"; fi; }
+            add_setting GITHUB_API_URL '${GitHubApiUrl}'
+            add_setting GCACHE_ENABLED '${CacheEnabled}'
+            add_setting GCACHE_TTL_SECONDS '${CacheTtlSeconds}'
+            add_setting GCACHE_MAX_SIZE '${CacheMaxSize}'
+            add_setting GH_DASHBOARD_MAX_COMMITS '${DashboardMaxCommits}'
+            umask 022
+            chown root:"$APP_USER" "$CONF_DIR/grade-checker.env"
+            chmod 640 "$CONF_DIR/grade-checker.env"
+            unset CLIENT_SECRET
+            # optional: token of the cache admin API (/admin/cache); without it the API answers 403
+            if [ -n '${CacheSecretArn}' ]; then
+              CACHE_SECRET=$(aws secretsmanager get-secret-value --region '${AWS::Region}' \
+                  --secret-id '${CacheSecretArn}' --query SecretString --output text)
+              echo "GCACHE_ADMIN_SECRET=$CACHE_SECRET" >> "$CONF_DIR/grade-checker.env"
+              unset CACHE_SECRET
+              echo "cache admin API enabled (GCACHE_ADMIN_SECRET set)"
+            fi
+            # non-secret values also visible in interactive shells (the secret stays only in the env file)
+            cat > /etc/profile.d/grade-checker.sh <<EOF
+            export GITHUB_BASE_URL=${GitHubBaseUrl}
+            export GITHUB_CLIENT_ID=${GitHubClientId}
+            EOF
+
+            echo "==> 5/8 Jetty $JETTY_VERSION"
+            curl -fsSL -o /tmp/jetty-home.tar.gz \
+                "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-home/$JETTY_VERSION/jetty-home-$JETTY_VERSION.tar.gz"
+            tar -xzf /tmp/jetty-home.tar.gz -C /opt
+            ln -sfn "/opt/jetty-home-$JETTY_VERSION" "$JETTY_HOME"
+            rm -f /tmp/jetty-home.tar.gz
+            install -d -o "$APP_USER" -g "$APP_USER" "$JETTY_BASE" "$JETTY_BASE/webapps"
+            # plus = JNDI used by WEB-INF/jetty-env.xml; jsp + jstl for the pages
+            (cd "$JETTY_BASE" && sudo -u "$APP_USER" "$JAVA_HOME/bin/java" -jar "$JETTY_HOME/start.jar" \
+                --add-modules=server,http,deploy,annotations,plus,jsp,jstl)
+            echo "jetty.http.port=80" >> "$JETTY_BASE/start.d/http.ini"
+
+            echo "==> 6/8 deploy helper: sudo grade-checker-deploy [latest|vX.Y.Z]"
+            # downloads grade-checker.war of a GitHub Release, checks its SHA-256 against the digest published by
+            # GitHub and installs it as ROOT.war (the pages use absolute links: /home, /detail, ...)
+            cat > /usr/local/bin/grade-checker-deploy <<'EOF'
+            #!/bin/bash
+            set -euo pipefail
+            REPO='${ReleaseRepository}'
+            VERSION=latest
+            if [ $# -gt 0 ]; then VERSION=$1; fi
+            if [ "$VERSION" = latest ]; then API="https://api.github.com/repos/$REPO/releases/latest"
+            else API="https://api.github.com/repos/$REPO/releases/tags/$VERSION"; fi
+            JSON=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API") || { echo "release $VERSION not found in $REPO" >&2; exit 1; }
+            read -r TAG URL DIGEST < <(printf '%s' "$JSON" | python3 -c '
+            import json, sys
+            r = json.load(sys.stdin)
+            a = [x for x in r.get("assets", []) if x["name"] == "grade-checker.war"]
+            if not a: sys.exit("release " + r.get("tag_name", "?") + " has no grade-checker.war")
+            print(r["tag_name"], a[0]["browser_download_url"], (a[0].get("digest") or "none").replace("sha256:", ""))
+            ')
+            echo "release $TAG: $URL"
+            TMP=$(mktemp)
+            curl -fsSL -o "$TMP" "$URL"
+            if [ "$DIGEST" != none ]; then echo "$DIGEST  $TMP" | sha256sum -c --quiet; echo "SHA-256 ok"; fi
+            install -o gradechecker -g gradechecker -m 644 "$TMP" /opt/jetty-base/webapps/ROOT.war
+            rm -f "$TMP"
+            echo "$TAG" > /etc/grade-checker/version
+            if systemctl is-enabled --quiet grade-checker 2>/dev/null; then systemctl restart grade-checker; fi
+            echo "deployed $TAG"
+            EOF
+            chmod 755 /usr/local/bin/grade-checker-deploy
+
+            echo "==> 7/8 grade-checker.war (release ${ReleaseVersion} of ${ReleaseRepository})"
+            /usr/local/bin/grade-checker-deploy '${ReleaseVersion}'
+
+            echo "==> 8/8 systemd service"
+            cat > /etc/systemd/system/grade-checker.service <<EOF
+            [Unit]
+            Description=Grade Checker (Jetty $JETTY_VERSION)
+            After=network-online.target
+            Wants=network-online.target
+
+            [Service]
+            Type=simple
+            User=$APP_USER
+            Group=$APP_USER
+            EnvironmentFile=$CONF_DIR/grade-checker.env
+            WorkingDirectory=$JETTY_BASE
+            ExecStart=$JAVA_HOME/bin/java -Xms256m -Xmx768m -jar $JETTY_HOME/start.jar jetty.home=$JETTY_HOME jetty.base=$JETTY_BASE
+            # bind port 80 without running as root
+            AmbientCapabilities=CAP_NET_BIND_SERVICE
+            Restart=on-failure
+            RestartSec=10
+            SuccessExitStatus=143
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            systemctl daemon-reload
+            systemctl enable --now grade-checker
+
+            echo "==> waiting for http://localhost/login"
+            for i in $(seq 1 60); do
+              if curl -fsS -o /dev/null http://localhost/login; then
+                echo "Grade Checker $(cat /etc/grade-checker/version) is up"
+                signal 0 "Grade Checker $(cat /etc/grade-checker/version) is up"
+                exit 0
+              fi
+              sleep 5
+            done
+            journalctl -u grade-checker --no-pager -n 100 || true
+            false
+          - SecretArn: !Ref GitHubClientSecretValue
+            CacheSecretArn: !If [HasCacheAdminSecret, !Ref CacheAdminSecretValue, '']
+
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Instance   # stable address across stop/start (needed by the OAuth callback URL)
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-eip' }
+
+Outputs:
+  ApplicationUrl:
+    Description: Grade Checker URL
+    Value: !Sub 'http://${ElasticIp}/'
+  OAuthCallbackUrl:
+    Description: Set this as the callback URL of the GitHub OAuth App / GitHub App
+    Value: !Sub 'http://${ElasticIp}/callback'
+  InstanceId:
+    Value: !Ref Instance
+  SessionManagerCommand:
+    Description: Shell on the instance without SSH
+    Value: !Sub 'aws ssm start-session --target ${Instance} --region ${AWS::Region}'
+  Logs:
+    Description: Where to look on the instance
+    Value: 'setup: /var/log/grade-checker-setup.log | app: sudo journalctl -u grade-checker -f'
+  GitHubClientSecretArn:
+    Description: Secrets Manager secret holding GITHUB_CLIENT_SECRET
+    Value: !Ref GitHubClientSecretValue
+  DeployVersion:
+    Description: Deploy another release on the running instance (the H2 database is kept)
+    Value: 'sudo grade-checker-deploy vX.Y.Z (or latest); current version: cat /etc/grade-checker/version'
+  ChangeSettings:
+    Description: >-
+      The settings are written once, on the first boot. To change them on a running instance
+      (e.g. GRADE_CHECKER_ADMINS), edit the file and restart; updating the stack parameters does not rewrite it
+    Value: 'sudo vi /etc/grade-checker/grade-checker.env && sudo systemctl restart grade-checker'
+  CacheAdminApi:
+    Description: Whether the cache admin API (/admin/cache) is enabled on the instance
+    Value: !If [HasCacheAdminSecret, 'enabled (token in Secrets Manager: <stack>/cache-admin-secret)', 'disabled (CacheAdminSecret empty - API answers 403)']

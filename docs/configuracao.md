@@ -36,7 +36,7 @@ O login do usuário é obtido do GitHub (`GET /user`) no momento do login, por G
 
 ## Períodos de avaliação (marcos)
 
-As datas ficam em `src/main/resources/milestones.properties` (dias inteiros e inclusivos, no fuso configurado):
+As datas ficam em `applications/monolith/src/main/resources/milestones.properties` (dias inteiros e inclusivos, no fuso configurado):
 
 ```properties
 milestone.timezone=America/Sao_Paulo
@@ -62,7 +62,7 @@ nota do marco = 3 × min(1, (participação no índice ÷ parte justa) ÷ 0,8)  
   - **commits relevantes:** commits com 20 linhas ou mais.
 - **Alunos** = membros do grupo, menos bots e os logins de `grading.excludedLogins` (o professor). Um membro sem commits no marco tira **0**.
 - **Commits que não contam:** os de identidades sem conta (selo "No GitHub account") não contam para nenhum aluno, e a tela avisa quantos ficaram de fora. O administrador pode associá-los a um aluno.
-- **Ajustes:** pesos, tolerância, teto e regras ficam em `src/main/resources/grading.properties`. Depois de mudar, reinicie a aplicação (no Docker, rebuild da imagem).
+- **Ajustes:** pesos, tolerância, teto e regras ficam em `applications/monolith/src/main/resources/grading.properties`. Depois de mudar, reinicie a aplicação (no Docker, rebuild da imagem).
 - **Explicação da nota:** a caixa "Como as notas são calculadas" (em português, porque é para os alunos) usa os números de `grading.properties` e `milestones.properties`. Mudou a configuração e reiniciou, o texto acompanha.
 
 ## Atribuição de commits aos alunos

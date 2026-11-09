@@ -1,4 +1,5 @@
-# Publishes a version of the application (capability vanilla-release): tag vX.Y.Z, GitHub Release and grade-checker.war.
+# Publishes a version of the monolith (applications/monolith, capability vanilla-release): tag vX.Y.Z, GitHub Release
+# and grade-checker.war.
 # Manual trigger only: Actions > "Release vanilla version" > Run workflow (branch main), or
 #   gh workflow run release-vanilla.yml --ref main -f version=1.0.1
 # A published version never changes: a fix is a new version. The CI build of each push stays in maven.yml.
@@ -15,6 +16,10 @@ on:
 permissions:
   contents: write
 
+defaults:
+  run:
+    working-directory: applications/monolith
+
 concurrency:
   group: release-vanilla
   cancel-in-progress: false
@@ -25,6 +30,9 @@ jobs:
     env:
       VERSION: ${{ inputs.version }}
     steps:
+    # first: the default working-directory (defaults.run) exists only after the checkout
+    - uses: actions/checkout@v4
+
     - name: Check branch and version
       run: |
         if [ "$GITHUB_REF" != "refs/heads/main" ]; then
@@ -34,8 +42,6 @@ jobs:
           echo "::error::version must be X.Y.Z (got '$VERSION')"; exit 1
         fi
         echo "TAG=v$VERSION" >> "$GITHUB_ENV"
-
-    - uses: actions/checkout@v4
 
     - name: Tag must not exist
       run: |
@@ -50,9 +56,14 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
+    # grade-checker-core (applications/library-core) is built, tested and installed first: the WAR uses the library
+    # of this commit, with no GitHub Packages token
+    - name: Build and install grade-checker-core
+      run: mvn -B install --file ../library-core/pom.xml
+
     - name: Build and test
       run: |
-        mvn -B package --file pom.xml
+        mvn -B package
         test -f target/grade-checker.war
 
     - name: Create tag, release and attach the WAR

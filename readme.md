@@ -66,5 +66,5 @@ Os administradores veem na barra de navegação os links **Manage groups** e **C
 
 - [Desenvolvimento](docs/desenvolvimento.md): rodar localmente, variáveis de ambiente, banco de dados e testes.
 - [Configuração](docs/configuracao.md): GitHub App, administradores, marcos, regras da nota, dashboard e cache.
-- [Deploy com Docker](docs/deploy.md): imagem, container e controle do cache em produção.
+- [Deploy](docs/deploy.md): Docker, AWS (CloudFormation) e controle do cache em produção.
 - [API](docs/api.md): rotas usadas pelas telas, erros e API administrativa do cache.

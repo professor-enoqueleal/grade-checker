@@ -61,5 +61,5 @@ jobs:
       run: |
         gh release create "$TAG" target/grade-checker.war \
           --target "$GITHUB_SHA" \
-          --title "$TAG — vanilla version" \
+          --title "$TAG" \
           --generate-notes

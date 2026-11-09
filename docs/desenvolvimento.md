@@ -24,16 +24,38 @@ set GRADE_CHECKER_ADMINS=your-github-login
 
 Sem `GRADE_CHECKER_ADMINS`, ninguém vê membros, associações nem as notas da turma. As demais variáveis estão em [Configuração](configuracao.md).
 
+## Pré-requisitos
+
+- **Java 17 ou 21**, no terminal e no IntelliJ (*Settings → Build Tools → Maven → Runner → JRE* e *Project Structure → SDK*). No Java 25, os testes falham com "Mockito cannot mock this class": a versão do Mockito do projeto não suporta o Java 25.
+- **A library `grade-checker-core`**, de um destes dois jeitos:
+  - **Versão publicada (GitHub Packages):** o Maven baixa sozinho a versão do `pom.xml`, mas o GitHub Packages exige um token com `read:packages` **mesmo com o repositório público**. Crie o `~/.m2/settings.xml` (o IntelliJ usa o mesmo arquivo, em *Settings → Build Tools → Maven → User settings file*):
+
+    ```xml
+    <settings>
+      <servers>
+        <server>
+          <id>github</id>
+          <username>SEU_LOGIN_DO_GITHUB</username>
+          <password>${env.GITHUB_TOKEN}</password>
+        </server>
+      </servers>
+    </settings>
+    ```
+
+    e deixe o token na variável `GITHUB_TOKEN` (por exemplo, `export GITHUB_TOKEN=$(gh auth token)` no `~/.zshrc`; o `gh` precisa do escopo `read:packages`: `gh auth refresh -s read:packages`).
+    - **IntelliJ aberto pelo Dock ou pelo Spotlight não lê o `~/.zshrc`:** defina `GITHUB_TOKEN` em *Maven → Runner → Environment variables*, abra o IntelliJ pelo terminal, ou ponha o token direto no `<password>` (um token só com `read:packages`, e `chmod 600 ~/.m2/settings.xml`).
+    - Sem a credencial, o download falha com **401**. Depois do primeiro download, a versão fica no `~/.m2/repository` e os builds seguintes não precisam mais dela.
+  - **Compilada do repositório:** `sh ./mvnw -f ../library-core/pom.xml install`. Use quando estiver mudando a library; repita depois de cada mudança em `applications/library-core`.
+
+O CI, o Docker e o workflow de release compilam a library sozinhos, sem token.
+
 ## Executar localmente
 
 O uso padrão é **na sua máquina, em `http://localhost:8080`**:
 
 ```shell
-sh ./mvnw -f ../library-core/pom.xml install   # a library (uma vez, e de novo depois de mudar applications/library-core)
-sh ./mvnw jetty:run                            # ou rode pelo IntelliJ (Jetty na porta 8080)
+sh ./mvnw jetty:run        # ou rode pelo IntelliJ (Jetty na porta 8080)
 ```
-
-O CI, o Docker e o workflow de release compilam a library sozinhos. Só o desenvolvimento local precisa desse `install`.
 
 Se o *maven wrapper* não tiver permissão de execução:
 
@@ -68,7 +90,7 @@ A aplicação em si (IntelliJ e Docker) não precisa dessa opção.
 
 ### Testes E2E
 
-Há uma suíte Playwright em `applications/monolith/e2e` (veja o `README.md` dela). Por padrão, ela sobe a própria instância com `mvn jetty:run` e um banco H2 isolado, então a library precisa estar instalada (veja [Executar localmente](#executar-localmente)):
+Há uma suíte Playwright em `applications/monolith/e2e` (veja o `README.md` dela). Por padrão, ela sobe a própria instância com `mvn jetty:run` e um banco H2 isolado, então a library precisa estar disponível (veja [Pré-requisitos](#pré-requisitos)):
 
 ```bash
 cd e2e && npm install && npm run test:local

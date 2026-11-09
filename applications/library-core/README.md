@@ -6,8 +6,8 @@ Library Maven com o **domínio** do Grade Checker (notas por marco, atribuição
 
 Cada aplicação fica só com o que é particular dela: HTTP, sessão, persistência, cache e configuração.
 
-- **Plano e decisões:** `plan.md`.
-- **Specs:** `openspec/`, com os comandos rodados a partir desta pasta.
+- **Plano e decisões:** `openspec/library-core-plan.md`, na raiz do repositório.
+- **Specs:** no OpenSpec da raiz do repositório (`openspec/specs/core-*`), com os comandos rodados a partir da raiz.
 - **Histórico de versões:** `CHANGELOG.md`.
 
 ## Uso
@@ -85,16 +85,18 @@ Os comandos rodam em `applications/library-core`.
 | `mvn install` | instala no `~/.m2`, para as aplicações usarem a versão local (por exemplo, `1.0.0-SNAPSHOT`) |
 | `gh workflow run core-release.yml --ref main -f version=X.Y.Z` | workflow manual "Release core library" (`.github/workflows/core-release.yml`): testa, publica no GitHub Packages e cria a tag `core-vX.Y.Z` e a Release; a versão precisa ser igual à do `pom.xml` |
 
-**Ler do GitHub Packages exige um token com `read:packages`, mesmo com o repositório público.** Localmente, use o `~/.m2/settings.xml`:
+**Ler do GitHub Packages exige um token com `read:packages`, mesmo com o repositório público.** Localmente, use o `~/.m2/settings.xml` (o mesmo arquivo que o IntelliJ usa):
 
 ```xml
 <settings>
   <servers>
     <server>
       <id>github</id>
-      <username>SEU_LOGIN</username>
-      <password>TOKEN_COM_read:packages</password>   <!-- gh auth refresh -s read:packages; gh auth token -->
+      <username>SEU_LOGIN_DO_GITHUB</username>
+      <password>${env.GITHUB_TOKEN}</password>
     </server>
   </servers>
 </settings>
 ```
+
+O token fica na variável `GITHUB_TOKEN` (`export GITHUB_TOKEN=$(gh auth token)`; escopo: `gh auth refresh -s read:packages`). O IntelliJ aberto pelo Dock não lê o `~/.zshrc`: defina a variável em *Maven → Runner → Environment variables* ou ponha o token direto no `<password>` (só `read:packages`, com `chmod 600`). Sem credencial, o download responde 401. Detalhes em `docs/desenvolvimento.md`, na raiz do repositório.

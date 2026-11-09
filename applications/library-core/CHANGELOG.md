@@ -5,7 +5,7 @@ Versionamento semântico:
 - **minor:** regra nova compatível. Qualquer mudança no **valor das notas** sobe pelo menos a minor;
 - **major:** mudança incompatível da API ou da regra.
 
-## 1.0.0 (pronta para publicar pelo workflow "Release core library")
+## 1.0.0 (2026-11-09)
 
 Primeira versão: o núcleo que as versões Jetty e serverless tinham copiado, num artefato só (change `core-library`).
 

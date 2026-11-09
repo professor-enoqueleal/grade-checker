@@ -6,7 +6,7 @@
 
     <!-- grade-checker-core: domain of Grade Checker (grades per milestone, author attribution, periods, groups) and the
          GitHub client, shared by the monolith (applications/monolith) and the serverless version (applications/serverless/lambda).
-         Independent project: it does not inherit from the applications. Spec: openspec/ (this folder). Plan: plan.md. -->
+         Independent project: it does not inherit from the applications. Specs and plan: openspec/ at the repository root (specs/core-*, library-core-plan.md). -->
     <groupId>br.com.gradechecker</groupId>
     <artifactId>grade-checker-core</artifactId>
     <version>1.0.0</version>

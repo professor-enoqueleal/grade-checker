@@ -25,6 +25,6 @@
 ## 4. Publicação e aceite
 
 - [x] 4.1 `.github/workflows/core-release.yml`: disparo manual com `version` = versão do pom, só no `main`, tag inexistente, `verify`, `deploy` com `GITHUB_TOKEN`, tag `core-vX.Y.Z` e Release com os jars (sem *Latest*)
-- [ ] 4.2 Versão `1.0.0` no `core/pom.xml` e nas duas aplicações (feito); workflow "Release core library" disparado pelo professor com `version=1.0.0` e publicação conferida no GitHub Packages (pendente)
+- [x] 4.2 Versão `1.0.0` no `core/pom.xml` e nas duas aplicações; workflow "Release core library" disparado pelo professor com `version=1.0.0` (2026-11-09): 145 testes, jar, jar de fontes e pom no GitHub Packages, tag `core-v1.0.0` e Release sem *Latest*
 - [x] 4.3 Comparação de notas Jetty × serverless sem diferenças
-- [ ] 4.4 `core/plan.md` (andamento) e `serverless/migration-plan.md` (feito); validar e arquivar depois da 4.2
+- [x] 4.4 `core/plan.md` (andamento) e `serverless/migration-plan.md`; validar e arquivar

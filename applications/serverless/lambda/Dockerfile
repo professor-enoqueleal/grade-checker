@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Lambda of the Grade Checker API for serverless/docker-compose.yml (capability local-compose):
+# Lambda of the Grade Checker API for serverless/docker-compose.yml (capability serverless-local-compose):
 # official AWS base image for Java 21 (with the Runtime Interface Emulator), same handler and /var/task layout as
 # `sam build` (template in applications/serverless). Also runs the local database setup (entrypoint override in the compose file).
 #

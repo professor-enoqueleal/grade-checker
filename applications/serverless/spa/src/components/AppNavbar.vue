@@ -4,7 +4,7 @@ import { api } from '@/api';
 import { useSession } from '@/composables/useSession';
 
 /**
- * Navbar of every authenticated page (openspec capability navigation-bar): brand (home), administrator links,
+ * Navbar of every authenticated page (openspec capability serverless-navigation-bar): brand (home), administrator links,
  * login and "Sign out". The menu collapses on phones (Bootstrap collapse, Bootstrap JS loaded once in main.ts).
  */
 defineProps<{ active?: 'groups' | 'grades' }>();

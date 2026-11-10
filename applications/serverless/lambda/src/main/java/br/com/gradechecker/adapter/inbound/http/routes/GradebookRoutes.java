@@ -20,7 +20,7 @@ import java.util.Map;
 import static br.com.gradechecker.adapter.inbound.http.Router.Access.admin;
 
 /**
- * Class grades (capability gradebook-api), administrators only: the groups and their students (no GitHub call), and
+ * Class grades (capability serverless-gradebook-api), administrators only: the groups and their students (no GitHub call), and
  * the grades of one group (use case ClassGradesQuery of grade-checker-core). The CSV is made by the SPA.
  */
 public final class GradebookRoutes {

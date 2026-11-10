@@ -2,7 +2,7 @@ import { test, expect, Page } from '@playwright/test';
 import { ajax, aliasGroupId, githubToken, groupId, skipWithoutToken } from '../../support/env';
 import { captureStats } from '../../support/dashboard';
 
-/** Commits of one contributor (/contributions-detail), capability commit-history-page. */
+/** Commits of one contributor (/contributions-detail), capability serverless-commit-history-page. */
 test.describe('Contributions detail', () => {
 
   test.skip(!githubToken, skipWithoutToken);

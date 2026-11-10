@@ -27,7 +27,7 @@ import java.util.Map;
 import static br.com.gradechecker.adapter.inbound.http.Router.Access.USER;
 
 /**
- * Configuration of the pages, contributions report and commit history (capability contributions-api): reads the
+ * Configuration of the pages, contributions report and commit history (capability serverless-contributions-api): reads the
  * request, calls the use cases of grade-checker-core (ContributionsQuery, CommitHistoryQuery) and writes JSON.
  */
 public final class ReportRoutes {

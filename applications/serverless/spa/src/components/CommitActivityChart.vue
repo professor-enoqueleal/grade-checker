@@ -4,7 +4,7 @@ import type { CommitActivity } from '@/api/types';
 import { CHART_COLORS, CHART_SURFACE, Chart, columnTopRadius, GRID_COLOR, TICK_COLOR } from '@/utils/charts';
 
 /**
- * Commit frequency (openspec capability commit-history-page): same commits as the table, per day or per week,
+ * Commit frequency (openspec capability serverless-commit-history-page): same commits as the table, per day or per week,
  * one series per milestone (blue ramp) and "outside the milestones" (gray). The backend sends the columns.
  */
 const props = defineProps<{ activity: CommitActivity }>();

@@ -1,4 +1,4 @@
-# Grade Checker serverless, everything local with one command (capability local-compose):
+# Grade Checker serverless, everything local with one command (capability serverless-local-compose):
 #   docker compose up --build        -> http://localhost:5173
 # SPA (nginx, like CloudFront) -> gateway (like the HTTP API) -> Lambda (official AWS image, Runtime Interface
 # Emulator) -> DynamoDB Local (data kept in the volume dynamodb-data; `docker compose down -v` deletes it).

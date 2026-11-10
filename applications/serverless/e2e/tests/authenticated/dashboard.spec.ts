@@ -2,7 +2,7 @@ import { test, expect, Page } from '@playwright/test';
 import { captureStats, chartState, expectChartsToMatch, expectTableToMatch } from '../../support/dashboard';
 import { githubToken, groupId, skipWithoutToken } from '../../support/env';
 
-/** Group dashboard on /detail (capabilities contributions-dashboard and contributions-api). */
+/** Group dashboard on /detail (capabilities serverless-contributions-dashboard and serverless-contributions-api). */
 test.describe('Group dashboard', () => {
 
   test.skip(!githubToken, skipWithoutToken);

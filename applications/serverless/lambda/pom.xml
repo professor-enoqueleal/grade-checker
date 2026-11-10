@@ -6,7 +6,7 @@
 
     <!-- Grade Checker serverless backend: one Lambda (Java 21, SnapStart) behind the API Gateway HTTP API.
          Built by `sam build` (Maven builder: compiles and copies the runtime dependencies, no shade).
-         Spec: serverless/openspec (change backend-lambda). -->
+         Spec: openspec at the repository root (change backend-lambda, archived). -->
     <groupId>br.com.gradechecker</groupId>
     <artifactId>grade-checker-backend</artifactId>
     <version>1.0-SNAPSHOT</version>

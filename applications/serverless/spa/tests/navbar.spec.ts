@@ -11,7 +11,7 @@ function render(active?: 'groups' | 'grades') {
   return mount(AppNavbar, { props: { active }, global: { stubs: { RouterLink: RouterLinkStub } } });
 }
 
-describe('navbar (openspec capability navigation-bar)', () => {
+describe('navbar (openspec capability serverless-navigation-bar)', () => {
   it('administrator: Manage groups and Class grades, the current one marked', () => {
     session.me = { login: 'professor', isAdmin: true };
     const w = render('grades');

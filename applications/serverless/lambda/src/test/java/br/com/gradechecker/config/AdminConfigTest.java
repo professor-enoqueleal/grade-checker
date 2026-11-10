@@ -7,7 +7,7 @@ import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 import static org.junit.Assert.*;
 
-/** Copied from the Jetty version (capability platform-admin) without the HttpSession tests: capability session-auth. */
+/** Copied from the Jetty version (capability platform-admin) without the HttpSession tests: capability serverless-session-auth. */
 public class AdminConfigTest {
 
     @Rule

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { githubToken, groupId, skipWithoutToken } from '../../support/env';
 
-/** "Como as notas são calculadas" on /detail (capability group-detail-page; numbers from GET /api/config). */
+/** "Como as notas são calculadas" on /detail (capability serverless-group-detail-page; numbers from GET /api/config). */
 test.describe('Grading explanation', () => {
 
   test.skip(!githubToken, skipWithoutToken);

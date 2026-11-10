@@ -1,5 +1,5 @@
 #!/bin/sh
-# DynamoDB Local for `sam local start-api` (capability backend-project):
+# DynamoDB Local for `sam local start-api` (capability serverless-backend-project):
 # starts amazon/dynamodb-local on the Docker network grade-checker-local (the Lambda container reaches it as
 # http://dynamodb-local:8000; this machine as http://localhost:8000) and creates the two tables.
 # Data is in memory: it is lost when the container stops. Usage: sh scripts/local-dynamodb.sh [stop]

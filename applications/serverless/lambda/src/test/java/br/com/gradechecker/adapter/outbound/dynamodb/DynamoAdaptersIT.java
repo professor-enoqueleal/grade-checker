@@ -26,7 +26,7 @@ import java.util.concurrent.Future;
 
 import static org.junit.Assert.*;
 
-/** Stores over DynamoDB Local (capabilities dynamodb-data, session-auth, github-cache). mvn test -Pintegration */
+/** Stores over DynamoDB Local (capabilities serverless-dynamodb-data, serverless-session-auth, serverless-github-cache). mvn test -Pintegration */
 public class DynamoAdaptersIT {
 
     private static LocalTables tables;

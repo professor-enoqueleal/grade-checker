@@ -1,6 +1,6 @@
 package br.com.gradechecker.adapter.inbound.http;
 
-/** An error answered as { "error": code, "message": message } with the HTTP status (capability api-routing). */
+/** An error answered as { "error": code, "message": message } with the HTTP status (capability serverless-api-routing). */
 public class ApiException extends RuntimeException {
 
     private final int status;

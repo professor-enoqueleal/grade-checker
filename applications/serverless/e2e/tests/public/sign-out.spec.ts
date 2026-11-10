@@ -25,7 +25,7 @@ test.describe('Sign out', () => {
     await expect(page.getByRole('alert')).toContainText('Please sign in to continue.');
   });
 
-  test('"Sign out" in the navbar signs out with a success message (capability navigation-bar)', async ({ page }) => {
+  test('"Sign out" in the navbar signs out with a success message (capability serverless-navigation-bar)', async ({ page }) => {
     test.skip(!githubToken, skipWithoutToken);
     await signIn(page);
 

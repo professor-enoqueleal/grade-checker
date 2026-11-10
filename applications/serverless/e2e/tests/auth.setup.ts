@@ -32,7 +32,7 @@ async function findGroup(page: Page, name: string): Promise<string | undefined> 
 }
 
 /**
- * As administrator, makes sure a test group is active (capability groups-api): creates it, or restores it when it was
+ * As administrator, makes sure a test group is active (capability serverless-groups-api): creates it, or restores it when it was
  * archived. Without administrator nothing can be created: the groups must exist (the seed creates them).
  */
 async function ensureGroup(page: Page, g: { name: string; url: string }) {
@@ -51,7 +51,7 @@ async function ensureGroup(page: Page, g: { name: string; url: string }) {
 }
 
 /**
- * Groups start without members (capability members-api): makes sure the groups used by the tests exist and, as
+ * Groups start without members (capability serverless-members-api): makes sure the groups used by the tests exist and, as
  * administrator, marks their contributors as members.
  */
 async function prepareGroups(page: Page) {

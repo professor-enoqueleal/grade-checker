@@ -19,7 +19,7 @@ import { formatMax, formatPercentage } from '@/utils/format';
 import { gradeColumns, gradingNotice, MILESTONE_KEYS } from '@/utils/grades';
 
 /**
- * Group detail (capabilities contributions-dashboard, milestone-period-filter, group-members, identity-aliases,
+ * Group detail (capabilities serverless-contributions-dashboard, milestone-period-filter, group-members, identity-aliases,
  * milestone-grading): group information, contributors and members, the dashboard per period (table + bar charts)
  * and how grades are calculated.
  */

@@ -1,6 +1,6 @@
 package br.com.gradechecker.session;
 
-/** A signed-in user (capability session-auth): item SESSION#id of the ephemeral table. */
+/** A signed-in user (capability serverless-session-auth): item SESSION#id of the ephemeral table. */
 public final class Session {
 
     private final String id;

@@ -162,7 +162,7 @@ Não funciona sem as mesmas mudanças, por dois motivos:
 | `/grades.csv` | gerado no navegador | admin |
 | `/admin/cache`, `/console` | removidos | — |
 
-O contrato detalhado (corpos, respostas e erros) está em `serverless/frontend/README.md`, e o mock da SPA (`serverless/frontend/mock/`) o implementa.
+O contrato detalhado (corpos, respostas e erros) está em `spa/README.md`, e o mock da SPA (`spa/mock/`) o implementa.
 
 **Controle de acesso:** fica num middleware dentro da própria função (sessão, admin e `X-Requested-With`). Um Lambda authorizer separado acrescentaria uma invocação por chamada sem ganho real aqui.
 
@@ -294,17 +294,22 @@ Um domínio próprio é opcional: a hosted zone do Route 53 custa US$ 0,50 por m
 
 ## Andamento
 
-- **Frontend:** pronto em `serverless/frontend` (Vue 3 + Vite). Spec da change `frontend-spa`, arquivada.
-- **Backend:** pronto em `serverless/backend` (Lambda Java 21, HTTP API, DynamoDB). Spec da change `backend-lambda`, arquivada.
+- **Frontend:** pronto em `applications/serverless/spa` (Vue 3 + Vite). Spec da change `frontend-spa`, arquivada.
+- **Backend:** pronto em `applications/serverless/lambda` (Lambda Java 21, HTTP API, DynamoDB). Spec da change `backend-lambda`, arquivada.
   - Roda de ponta a ponta em localhost com `sam local start-api`, DynamoDB Local e `npm run dev`.
-- **Domínio numa library:** a versão serverless e a versão Jetty usam a library `grade-checker-core` (`core/`), publicada no GitHub Packages (change `core-library` em `core/openspec`).
+- **Domínio numa library:** a versão serverless e a versão Jetty usam a library `grade-checker-core` (`applications/library-core`), publicada no GitHub Packages (change `core-library`, arquivada no OpenSpec da raiz).
 - **Portas e adapters (2026-11-08):**
   - o backend está organizado em `lambda/` (ponto de entrada `ApplicationHandler` e `AppContext`), `adapter/inbound/http` e `adapter/outbound/{dynamodb,cache}`;
   - as regras ficam nos casos de uso da library (changes `backend-hexagonal` e `core-ports-use-cases`);
   - o trecho de código da seção 2.6 é o esboço original, com os nomes antigos.
-- **Ambiente local com um comando:** `docker compose up --build` na pasta `serverless` (change `docker-compose-local`, arquivada).
-- **Próximo passo:** a change de publicação na AWS (CloudFront, bucket da SPA, GitHub App de produção, SSM, alarmes e budget), com a adaptação dos testes Playwright.
-- **Specs:** o OpenSpec da versão serverless fica em `serverless/openspec`.
+- **Ambiente local com um comando:** `docker compose up --build` na pasta `applications/serverless` (change `docker-compose-local`, arquivada).
+- **Publicação na AWS (2026-11-10):** feita (change `aws-publication`, arquivada).
+  - Stack inteira (`template.yaml`): bucket privado da SPA com OAC, CloudFront com Function de rewrite, HTTP API, Lambda, DynamoDB, budget e tags em todos os recursos; client secret no SSM, fora da stack.
+  - Workflows `serverless-ci.yml`, `serverless-release.yml` (tag `serverless-vX.Y.Z`) e `serverless-deploy.yml` (OIDC, sem chave AWS no repositório).
+  - `serverless-v1.0.0` publicada pelo GitHub Actions; E2E de admin contra a AWS: 85 passaram, 4 pulados.
+  - A stack fica no ar por decisão de operação: o custo serverless sem uso é próximo de zero.
+- **Próximo passo:** apagar a stack da EC2 quando a versão serverless substituir a Jetty (seção 9, fase 5).
+- **Specs:** o OpenSpec da versão serverless fica na raiz do repositório (`openspec/specs/serverless-*`).
 
 ## 9. Plano em fases
 

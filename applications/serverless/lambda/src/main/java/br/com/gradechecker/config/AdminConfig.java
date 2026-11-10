@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Platform administrators (capability session-auth): GitHub logins listed in GRADE_CHECKER_ADMINS (system property
+ * Platform administrators (capability serverless-session-auth): GitHub logins listed in GRADE_CHECKER_ADMINS (system property
  * first, then environment variable; comma separated, case-insensitive). Without the variable nobody is an
  * administrator. Read on every call.
  *

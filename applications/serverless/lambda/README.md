@@ -2,7 +2,7 @@
 
 Backend da versão serverless: **uma função Lambda** em Java 21 (SnapStart) atrás de uma **HTTP API** do API Gateway, que atende `/api/*` para a SPA (`applications/serverless/spa`), com **DynamoDB**. Ele é descrito no template AWS SAM `template.yaml`.
 
-- **Specs:** `applications/serverless/openspec/specs` (`backend-project`, `api-routing`, `session-auth`, `dynamodb-data`, `github-cache`, `groups-api`, `members-api`, `identity-aliases-api`, `contributions-api`, `gradebook-api`).
+- **Specs:** `openspec/specs` da raiz do repositório (`serverless-backend-project`, `serverless-api-routing`, `serverless-session-auth`, `serverless-dynamodb-data`, `serverless-github-cache`, `serverless-groups-api`, `serverless-members-api`, `serverless-identity-aliases-api`, `serverless-contributions-api`, `serverless-gradebook-api`).
 - **Contrato da API:** `applications/serverless/spa/README.md`.
 
 ## Pré-requisitos

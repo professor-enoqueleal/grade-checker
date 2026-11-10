@@ -1,4 +1,4 @@
-// Local stand-in for the API Gateway HTTP API (capability local-compose), Node 22 without dependencies.
+// Local stand-in for the API Gateway HTTP API (capability serverless-local-compose), Node 22 without dependencies.
 // Each /api/* request becomes an HTTP API payload 2.0 event, is sent to the Lambda Runtime Interface Emulator of the
 // "api" service, and the Lambda result goes back as an HTTP response (status, headers, cookies, body).
 // Like the HTTP API: a function error answers 500 {"message":"Internal Server Error"} and an invocation over 30 s

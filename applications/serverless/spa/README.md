@@ -1,6 +1,6 @@
 # Grade Checker — frontend (SPA)
 
-SPA em **Vue 3 + Vite + TypeScript**, com **Bootstrap 5** e **Chart.js**, que substitui as JSPs da versão Jetty. Em produção, o `dist/` fica num bucket S3 privado atrás do CloudFront, e `/api/*` vai para o API Gateway (veja `serverless/migration-plan.md`).
+SPA em **Vue 3 + Vite + TypeScript**, com **Bootstrap 5** e **Chart.js**, que substitui as JSPs da versão Jetty. Em produção, o `dist/` fica num bucket S3 privado atrás do CloudFront, e `/api/*` vai para o API Gateway (veja `../migration-plan.md`).
 
 As telas reproduzem as JSPs atuais: mesmos textos, mesmas URLs (`/home`, `/detail?id=`, `/contributions-detail`, `/grades`, `/groups`, `/group/members?id=`) e mesmos IDs. Assim, a maior parte dos testes Playwright de `e2e/` continua valendo.
 

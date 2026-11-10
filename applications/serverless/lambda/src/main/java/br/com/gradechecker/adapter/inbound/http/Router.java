@@ -17,7 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Router of the Lambda (capability api-routing): matches method and path ("/api/groups/{id}/members/{login}"),
+ * Router of the Lambda (capability serverless-api-routing): matches method and path ("/api/groups/{id}/members/{login}"),
  * then applies, in this order: X-Requested-With on changes, session (401), administrator (403), the route.
  * Errors become { "error", "message" }.
  */

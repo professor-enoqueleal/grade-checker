@@ -1,5 +1,5 @@
 #!/bin/sh
-# Removal of the serverless stack (capability aws-stack): empties the SPA bucket (CloudFormation does not delete a
+# Removal of the serverless stack (capability serverless-aws-stack): empties the SPA bucket (CloudFormation does not delete a
 # bucket with files) and deletes the stack, waiting for the end. CloudFront takes 5 to 15 minutes.
 # The data table is kept only when the stack was deployed with DATA_TABLE_DELETION_POLICY=Retain.
 # The SSM parameter of the client secret is not part of the stack and is kept.

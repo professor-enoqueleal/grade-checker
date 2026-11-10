@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DynamoDB client and table names (capability dynamodb-data), from the environment:
+ * DynamoDB client and table names (capability serverless-dynamodb-data), from the environment:
  * DATA_TABLE, EPHEMERAL_TABLE and DYNAMODB_ENDPOINT (only locally: DynamoDB Local).
  */
 public final class DynamoClient {

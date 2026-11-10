@@ -29,7 +29,7 @@ import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.n;
 import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.s;
 
 /**
- * Groups in the data table (capability dynamodb-data):
+ * Groups in the data table (capability serverless-dynamodb-data):
  * <ul>
  *   <li>{@code GROUPS / GROUP#0000000003}: the group (id, name, repository, owner, private, archivedAt, memberCount);</li>
  *   <li>{@code REPO#<normalized url> / REPO}: groupId, so a repository belongs to one group (active or archived);</li>

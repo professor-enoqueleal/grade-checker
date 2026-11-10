@@ -13,7 +13,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 
 /**
- * Entry point of the Lambda (template.yaml: Handler ApplicationHandler::handleRequest, capability api-routing):
+ * Entry point of the Lambda (template.yaml: Handler ApplicationHandler::handleRequest, capability serverless-api-routing):
  * every /api/* request of the HTTP API (payload 2.0) goes through the router to the inbound HTTP adapter.
  * The context and the router are created once per instance, in the static init (they enter the SnapStart snapshot).
  */

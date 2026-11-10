@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Setup of the local database (capability local-compose): waits for DynamoDB Local, creates the two tables when they
+ * Setup of the local database (capability serverless-local-compose): waits for DynamoDB Local, creates the two tables when they
  * are missing (same keys and TTL as template.yaml) and runs the seed. Refuses to run without DYNAMODB_ENDPOINT, so it
  * never creates tables in AWS. Used by the "setup" service of serverless/docker-compose.yml.
  */

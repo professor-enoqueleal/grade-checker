@@ -1,5 +1,5 @@
 /**
- * Environment of the suite (capability e2e-suite): its own Docker Compose project, isolated from the developer one.
+ * Environment of the suite (capability serverless-e2e-suite): its own Docker Compose project, isolated from the developer one.
  *   project grade-checker-e2e, SPA on 5183, gateway on 3010, DynamoDB on 8010, database deleted at the end.
  * E2E_BASE_URL: run against an environment that is already running (nothing is started or deleted).
  */

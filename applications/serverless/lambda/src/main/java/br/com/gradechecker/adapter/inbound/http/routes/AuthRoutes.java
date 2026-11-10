@@ -23,7 +23,7 @@ import java.security.MessageDigest;
 import static br.com.gradechecker.adapter.inbound.http.Router.Access.PUBLIC;
 
 /**
- * Session routes (capability session-auth): who is signed in, sign in with GitHub (OAuth with state) or with a
+ * Session routes (capability serverless-session-auth): who is signed in, sign in with GitHub (OAuth with state) or with a
  * personal access token, sign out. The session lives in DynamoDB; the browser only gets an HttpOnly cookie.
  */
 public final class AuthRoutes {

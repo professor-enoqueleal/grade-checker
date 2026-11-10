@@ -18,7 +18,7 @@ import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.n;
 import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.s;
 
 /**
- * Sessions and OAuth states in the ephemeral table (capability session-auth). Items expire with the table TTL
+ * Sessions and OAuth states in the ephemeral table (capability serverless-session-auth). Items expire with the table TTL
  * (attribute expiresAt); since the TTL deletes late, every read also checks expiresAt.
  */
 public class DynamoSessionStore {

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Seed of the groups (capability dynamodb-data): creates the groups of src/main/resources/seed-groups.json that do not
+# Seed of the groups (capability serverless-dynamodb-data): creates the groups of src/main/resources/seed-groups.json that do not
 # exist yet. Idempotent. Default: DynamoDB Local (http://localhost:8000). For AWS: DYNAMODB_ENDPOINT= DATA_TABLE=<table>
 # and the usual AWS credentials. Usage (from applications/serverless/lambda): sh scripts/seed.sh
 set -e

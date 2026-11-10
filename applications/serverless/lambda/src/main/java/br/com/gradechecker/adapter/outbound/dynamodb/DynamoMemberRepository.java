@@ -24,7 +24,7 @@ import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.n;
 import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.s;
 
 /**
- * Members (students) of a group (capability dynamodb-data): {@code GROUP#0000000003 / MEMBER#<lower-case login>},
+ * Members (students) of a group (capability serverless-dynamodb-data): {@code GROUP#0000000003 / MEMBER#<lower-case login>},
  * with login (GitHub spelling), name and createdManually. The memberCount of the group changes in the same transaction.
  */
 public class DynamoMemberRepository implements MemberRepository {

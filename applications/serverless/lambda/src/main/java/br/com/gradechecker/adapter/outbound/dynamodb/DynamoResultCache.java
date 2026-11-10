@@ -30,7 +30,7 @@ import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.n;
 import static br.com.gradechecker.adapter.outbound.dynamodb.DynamoClient.s;
 
 /**
- * Second cache level (capability github-cache), shared by every Lambda instance: CACHE#&lt;sha256 of the key&gt; in
+ * Second cache level (capability serverless-github-cache), shared by every Lambda instance: CACHE#&lt;sha256 of the key&gt; in
  * the ephemeral table, JSON compressed with gzip (items are limited to 400 KB), expiring after GCACHE_TTL_SECONDS.
  * A failure only logs a warning: the request goes on to GitHub.
  */

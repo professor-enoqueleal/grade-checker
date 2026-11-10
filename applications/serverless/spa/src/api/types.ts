@@ -1,6 +1,6 @@
 /**
  * Contract of the serverless API (/api/*), shared by the screens and the mock.
- * Documented in serverless/frontend/README.md ("Contrato da API"). Dates and period texts come formatted by the
+ * Documented in spa/README.md ("Contrato da API"). Dates and period texts come formatted by the
  * backend, in the time zone of milestones.properties, as the JSP pages do today.
  */
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Deploy of the whole serverless stack (capability aws-stack): API, Lambda, tables, SPA bucket, CloudFront and tags.
+# Deploy of the whole serverless stack (capability serverless-aws-stack): API, Lambda, tables, SPA bucket, CloudFront and tags.
 # The client secret is never read here: it stays in the SSM SecureString created once by the administrator.
 #
 #   GITHUB_CLIENT_ID=Iv1.xxx GRADE_CHECKER_ADMINS=login sh scripts/deploy.sh

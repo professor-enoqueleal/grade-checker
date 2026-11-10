@@ -11,7 +11,7 @@ import PeriodSelector from '@/components/PeriodSelector.vue';
 import { shortSha } from '@/utils/format';
 
 /**
- * Commit history of a student (openspec capability commit-history-page): commits attributed to the login in the
+ * Commit history of a student (openspec capability serverless-commit-history-page): commits attributed to the login in the
  * period (same history and attribution as the dashboard), frequency chart and table. The filter lives in the URL.
  */
 const route = useRoute();

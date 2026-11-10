@@ -41,7 +41,7 @@ public final class GitHubOAuthConfig {
 
     /**
      * GITHUB_CLIENT_SECRET (local); otherwise the secret supplier set by the Lambda (SSM SecureString named in
-     * GITHUB_CLIENT_SECRET_PARAMETER, capability backend-project).
+     * GITHUB_CLIENT_SECRET_PARAMETER, capability serverless-backend-project).
      */
     public static String clientSecret() {
         String value = read(CLIENT_SECRET);

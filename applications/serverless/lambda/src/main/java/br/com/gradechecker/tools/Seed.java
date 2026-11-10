@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Seed of the groups of the semester (capability dynamodb-data): the groups of seed-groups.json (the same of db.sql in
+ * Seed of the groups of the semester (capability serverless-dynamodb-data): the groups of seed-groups.json (the same of db.sql in
  * the Jetty version) whose repository is not registered yet, active or archived. Never changes existing groups, so it
  * can run any number of times. Run with scripts/seed.sh (DynamoDB Local or AWS, from DATA_TABLE / DYNAMODB_ENDPOINT).
  */

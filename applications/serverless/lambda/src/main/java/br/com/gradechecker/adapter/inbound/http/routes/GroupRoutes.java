@@ -29,7 +29,7 @@ import static br.com.gradechecker.adapter.inbound.http.Router.Access.USER;
 import static br.com.gradechecker.adapter.inbound.http.Router.Access.admin;
 
 /**
- * Groups, members and manual identity links (capabilities groups-api, members-api, identity-aliases-api): reads the
+ * Groups, members and manual identity links (capabilities serverless-groups-api, serverless-members-api, serverless-identity-aliases-api): reads the
  * request, calls the use cases of grade-checker-core (GroupManagement, Membership, IdentityLinking) and writes JSON.
  */
 public final class GroupRoutes {

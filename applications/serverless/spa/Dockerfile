@@ -1,4 +1,4 @@
-# SPA for serverless/docker-compose.yml (capability local-compose): production build served by nginx, which plays
+# SPA for serverless/docker-compose.yml (capability serverless-local-compose): production build served by nginx, which plays
 # the part of CloudFront (index.html for the SPA routes, /api to the local HTTP API gateway).
 FROM node:22-alpine AS build
 WORKDIR /app

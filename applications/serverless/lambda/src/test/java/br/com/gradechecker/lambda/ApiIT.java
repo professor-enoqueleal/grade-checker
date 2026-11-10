@@ -38,7 +38,7 @@ import static org.junit.Assert.*;
 
 /**
  * The API end to end over DynamoDB Local (Docker, started by scripts/local-dynamodb.sh) with GitHub simulated by
- * WireMock: capabilities session-auth, groups-api, members-api, identity-aliases-api, contributions-api, gradebook-api.
+ * WireMock: capabilities serverless-session-auth, serverless-groups-api, serverless-members-api, serverless-identity-aliases-api, serverless-contributions-api, serverless-gradebook-api.
  * Each run uses its own tables. Run with: mvn test -Pintegration
  */
 public class ApiIT {

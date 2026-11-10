@@ -10,7 +10,7 @@ import java.time.Duration;
 import java.util.function.Supplier;
 
 /**
- * Cache of the GitHub results given to grade-checker-core (port ResultCache, capability github-cache): first level in
+ * Cache of the GitHub results given to grade-checker-core (port ResultCache, capability serverless-github-cache): first level in
  * the memory of the Lambda instance (Caffeine); the second level (DynamoDB) is shared by every instance. A miss in
  * memory reads the second level and keeps the value in memory; put writes both.
  *

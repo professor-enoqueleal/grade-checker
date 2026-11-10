@@ -165,6 +165,15 @@ Resources:
                 Effect: Allow
                 Action: [budgets:ViewBudget, budgets:ModifyBudget]
                 Resource: !Sub arn:${AWS::Partition}:budgets::${AWS::AccountId}:budget/${AppStackName}-*
+              # CloudFront checks that the caller can read the ACM certificate of the own domain (read only)
+              - Sid: CertificateRead
+                Effect: Allow
+                Action: [acm:DescribeCertificate, acm:GetCertificate]
+                Resource: !Sub arn:${AWS::Partition}:acm:us-east-1:${AWS::AccountId}:certificate/*
+              - Sid: CertificateList
+                Effect: Allow
+                Action: acm:ListCertificates
+                Resource: '*'
               # deploy.sh checks that the parameter of the client secret exists (never reads its value)
               - Sid: ReadOnly
                 Effect: Allow

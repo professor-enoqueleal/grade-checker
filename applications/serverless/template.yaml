@@ -60,10 +60,38 @@ Parameters:
     Default: Delete
     AllowedValues: [Delete, Retain]
     Description: What happens to the data table (groups, members, links) when the stack is deleted
+  DomainName:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$'
+    ConstraintDescription: empty or a lowercase host name (e.g. gc.enoque.dev)
+    Description: >-
+      Own domain of the application (CNAME to DistributionDomainName in the DNS); empty = only the *.cloudfront.net
+      domain. Requires CertificateArn
+  CertificateArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$'
+    ConstraintDescription: empty or the ARN of an ACM certificate in us-east-1 (the only region CloudFront reads)
+    Description: >-
+      ACM certificate (us-east-1) of DomainName, requested once outside the stack with DNS validation
+
+Rules:
+  DomainNeedsCertificate:
+    RuleCondition: !Not [!Equals [!Ref DomainName, '']]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref CertificateArn, '']]
+        AssertDescription: DomainName needs CertificateArn
+  CertificateNeedsDomain:
+    RuleCondition: !Not [!Equals [!Ref CertificateArn, '']]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref DomainName, '']]
+        AssertDescription: CertificateArn needs DomainName
 
 Conditions:
   HasMaxConcurrency: !Not [!Equals [!Ref MaxConcurrency, 0]]
   HasBudget: !Not [!Equals [!Ref BudgetEmail, '']]
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
 
 Globals:
   Function:
@@ -249,6 +277,10 @@ Resources:
 
   Distribution:
     Type: AWS::CloudFront::Distribution
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks: [W1030]   # CertificateArn is used only under HasCustomDomain, when the Rules require a real ARN
     Properties:
       DistributionConfig:
         Comment: !Sub Grade Checker (${AWS::StackName})
@@ -257,6 +289,14 @@ Resources:
         IPV6Enabled: true
         PriceClass: PriceClass_100
         DefaultRootObject: index.html
+        # own domain (optional): the name and its ACM certificate; without it, the default *.cloudfront.net certificate
+        Aliases: !If [HasCustomDomain, [!Ref DomainName], !Ref AWS::NoValue]
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
         Origins:
           - Id: spa
             DomainName: !GetAtt SpaBucket.RegionalDomainName
@@ -313,11 +353,14 @@ Resources:
 
 Outputs:
   AppUrl:
-    Description: URL of Grade Checker (SPA and /api on the same domain)
-    Value: !Sub https://${Distribution.DomainName}
+    Description: URL of Grade Checker (SPA and /api on the same domain); the own domain when DomainName is set
+    Value: !If [HasCustomDomain, !Sub 'https://${DomainName}', !Sub 'https://${Distribution.DomainName}']
   CallbackUrl:
     Description: Callback URL of the production GitHub App (first in the list)
-    Value: !Sub https://${Distribution.DomainName}/api/auth/callback
+    Value: !If [HasCustomDomain, !Sub 'https://${DomainName}/api/auth/callback', !Sub 'https://${Distribution.DomainName}/api/auth/callback']
+  DistributionDomainName:
+    Description: Domain of the distribution (*.cloudfront.net), target of the CNAME of DomainName in the DNS
+    Value: !GetAtt Distribution.DomainName
   ApiUrl:
     Description: Base URL of the HTTP API (routes under /api); use AppUrl in the browser
     Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}

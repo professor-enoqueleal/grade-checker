@@ -5,7 +5,7 @@
 #   gh workflow run serverless-deploy.yml --ref main -f version=1.0.0
 # Repository variables (Settings > Secrets and variables > Actions > Variables; GitHub reserves the prefix GITHUB_):
 #   AWS_DEPLOY_ROLE_ARN (required), APP_CLIENT_ID (required), APP_ADMINS, APP_ENVIRONMENT (default test),
-#   BUDGET_EMAIL. The client secret stays in the SSM parameter /grade-checker/github-client-secret.
+#   BUDGET_EMAIL, APP_DOMAIN and APP_CERTIFICATE_ARN (own domain, together). The client secret stays in the SSM parameter /grade-checker/github-client-secret.
 name: Deploy serverless version
 
 on:
@@ -98,4 +98,6 @@ jobs:
         GRADE_CHECKER_ADMINS: ${{ vars.APP_ADMINS }}
         ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'test' }}
         BUDGET_EMAIL: ${{ vars.BUDGET_EMAIL }}
+        APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+        APP_CERTIFICATE_ARN: ${{ vars.APP_CERTIFICATE_ARN }}
       run: sh scripts/deploy.sh

@@ -3,7 +3,10 @@ import fs from 'fs';
 import path from 'path';
 import { githubToken, groupId, skipWithoutToken } from '../../support/env';
 
-/** "Como as notas são calculadas" on /detail (capability serverless-group-detail-page; numbers from GET /api/config). */
+/**
+ * "Como as notas são calculadas" / "How grades are calculated" on /detail (capabilities serverless-group-detail-page and
+ * serverless-i18n; numbers from GET /api/config, the same in both languages).
+ */
 test.describe('Grading explanation', () => {
 
   test.skip(!githubToken, skipWithoutToken);
@@ -22,6 +25,9 @@ test.describe('Grading explanation', () => {
   const ptPercent = (value: number) =>
     `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(Math.round(value * 1000) / 10)}%`;
   const ptDate = (iso: string) => iso.split('-').reverse().join('/');
+
+  test.describe('in Portuguese', () => {
+  test.use({ locale: 'pt-BR' });
 
   test('every user sees the explanation in Portuguese, with the numbers of the configuration', async ({ page }) => {
     const g = properties('grading.properties');
@@ -65,8 +71,21 @@ test.describe('Grading explanation', () => {
       `num grupo de 4 alunos, a parte justa é 25%. Quem tem ${ptPercent(0.25 * tolerance)} ou mais do índice recebe ${grade(0.25 * tolerance)}; `
       + `quem tem ${ptPercent(0.25 * tolerance / 2)} recebe ${grade(0.25 * tolerance / 2)}.`);
 
-    // the rest of the page stays in English
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(page.getByRole('heading', { name: 'Group information' })).toBeVisible();
+    // the whole page is in Portuguese
+    await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR');
+    await expect(page.getByRole('heading', { name: 'Informações do grupo' })).toBeVisible();
+  });
+  });
+
+  test('in English, with the same numbers', async ({ page }) => {
+    const g = properties('grading.properties');
+    await page.goto(`/detail?id=${groupId}`);
+    await expect(page.locator('#grading-explanation')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('#grading-explanation-title')).toHaveText('How grades are calculated');
+    const factors = page.locator('#grading-explanation-factors');
+    await expect(factors).toContainText('Effective lines (weight ');
+    await expect(factors).toContainText(`at most ${g['grading.commit.lineCap'] ?? '400'} lines per commit`);
+    await expect(factors).toContainText(`at least ${g['grading.relevantCommit.minLines'] ?? '20'} lines changed`);
+    await expect(page.locator('#grading-explanation-example')).toContainText('in a group of 4 students, the fair share is 25%.');
   });
 });

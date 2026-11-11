@@ -80,7 +80,7 @@ public final class AuthRoutes {
         }
         Session session = sessions.create(login, token);
         logger.info("{} signed in with a personal access token", login);
-        return Response.ok(me(login)).cookie(sessionCookie(session.getId()));
+        return Response.ok(me(login)).cookie(sessionCookie(session.getId(), sessions.maxSeconds()));
     }
 
     private Response logout(Call call) {
@@ -128,7 +128,7 @@ public final class AuthRoutes {
 
         Session session = sessions.create(login, accessToken.getAccessToken());
         logger.info("{} signed in with GitHub", login);
-        return Response.redirect("/home").cookie(sessionCookie(session.getId())).cookie(clear(OAUTH_COOKIE));
+        return Response.redirect("/home").cookie(sessionCookie(session.getId(), sessions.maxSeconds())).cookie(clear(OAUTH_COOKIE));
     }
 
     /** The state of the URL must equal the cookie (constant time) and exist in DynamoDB; it is consumed in any case. */
@@ -139,8 +139,9 @@ public final class AuthRoutes {
                 received.getBytes(StandardCharsets.UTF_8), fromCookie.getBytes(StandardCharsets.UTF_8));
     }
 
-    static String sessionCookie(String id) {
-        return SESSION_COOKIE + "=" + id + "; Path=/; Max-Age=" + DynamoSessionStore.SESSION_SECONDS + "; HttpOnly; Secure; SameSite=Lax";
+    /** Max-Age is the absolute lifetime; the idle deadline is checked on the server (DynamoSessionStore). */
+    static String sessionCookie(String id, long maxAgeSeconds) {
+        return SESSION_COOKIE + "=" + id + "; Path=/; Max-Age=" + maxAgeSeconds + "; HttpOnly; Secure; SameSite=Lax";
     }
 
     static String clear(String name) {

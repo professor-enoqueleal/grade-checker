@@ -6,7 +6,7 @@
 #
 # Variables: GITHUB_CLIENT_ID (required), GRADE_CHECKER_ADMINS, ENVIRONMENT (default test), BUDGET_EMAIL,
 # BUDGET_AMOUNT, MAX_CONCURRENCY, DATA_TABLE_DELETION_POLICY (Delete or Retain), STACK_NAME, AWS_REGION,
-# GITHUB_CLIENT_SECRET_PARAMETER, APP_DOMAIN and APP_CERTIFICATE_ARN (own domain, together; the certificate is an ACM
+# GITHUB_CLIENT_SECRET_PARAMETER, SESSION_IDLE_MINUTES (default 30) and SESSION_MAX_HOURS (default 8, at most 8), APP_DOMAIN and APP_CERTIFICATE_ARN (own domain, together; the certificate is an ACM
 # certificate in us-east-1 requested outside the stack), SKIP_BUILD (1 = deploy the build already in .aws-sam/build and spa/dist, as the
 # workflow serverless-deploy does with the build of a Release). Needs the AWS CLI, the SAM CLI, Maven (seed), Node 22
 # (SPA build) and the library grade-checker-core in ~/.m2 (published version or mvn -f ../library-core/pom.xml install).
@@ -62,6 +62,8 @@ param MaxConcurrency "${MAX_CONCURRENCY:-0}"
 param DataTableDeletionPolicy "${DATA_TABLE_DELETION_POLICY:-Delete}"
 param DomainName "${APP_DOMAIN:-}"
 param CertificateArn "${APP_CERTIFICATE_ARN:-}"
+param SessionIdleMinutes "${SESSION_IDLE_MINUTES:-30}"
+param SessionMaxHours "${SESSION_MAX_HOURS:-8}"
 # hash of the values above: any change publishes a new version of the function (template, AutoPublishCodeSha256)
 param ConfigurationHash "$(shasum -a 256 "$PARAMS" | cut -c1-16)"
 # stack tags: CloudFormation copies them to every resource that supports tags (reports and cost allocation)

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import type { GroupCard } from '@/api/types';
 
 /**
@@ -7,26 +8,27 @@ import type { GroupCard } from '@/api/types';
  */
 const props = defineProps<{ card: GroupCard; groupId: number; isAdmin: boolean; busy?: boolean }>();
 const emit = defineEmits<{ mark: [login: string]; unmark: [login: string] }>();
+const { t } = useI18n();
 
 const historyLink = { name: 'commits', query: { groupId: String(props.groupId), author: props.card.login } };
 </script>
 
 <template>
   <div class="card h-100 rounded-3 shadow-sm" :data-login="card.login">
-    <img :src="card.avatarUrl" class="card-img-top avatar-card-img" :alt="`Avatar of ${card.login}`" loading="lazy">
+    <img :src="card.avatarUrl" class="card-img-top avatar-card-img" :alt="t('card.avatar', { login: card.login })" loading="lazy">
     <div class="card-body">
       <h5 class="card-title text-break">{{ card.login }}</h5>
-      <p class="card-text contributions-count">Contributions: {{ card.contributions ?? '—' }}</p>
-      <span v-if="card.member" class="badge text-bg-success member-badge">Member</span>
+      <p class="card-text contributions-count">{{ t('card.contributions', { count: card.contributions ?? '—' }) }}</p>
+      <span v-if="card.member" class="badge text-bg-success member-badge">{{ t('card.member') }}</span>
     </div>
     <div class="card-footer bg-transparent border-0 pb-3 small">
-      <a :href="card.htmlUrl" target="_blank" rel="noopener noreferrer" class="card-link">GitHub</a>
-      <RouterLink :to="historyLink" class="card-link">Details</RouterLink>
+      <a :href="card.htmlUrl" target="_blank" rel="noopener noreferrer" class="card-link">{{ t('card.gitHub') }}</a>
+      <RouterLink :to="historyLink" class="card-link">{{ t('common.details') }}</RouterLink>
       <template v-if="isAdmin">
-        <a v-if="card.member" href="#" class="card-link unmark-member-link" :data-login="card.login" title="Unmark as member"
-           :aria-label="`Unmark ${card.login} as member`" @click.prevent="!busy && emit('unmark', card.login)">Unmark</a>
-        <a v-else href="#" class="card-link mark-member-link" :data-login="card.login" title="Mark as member"
-           :aria-label="`Mark ${card.login} as member`" @click.prevent="!busy && emit('mark', card.login)">Mark</a>
+        <a v-if="card.member" href="#" class="card-link unmark-member-link" :data-login="card.login" :title="t('card.unmarkTitle')"
+           :aria-label="t('card.unmarkLabel', { login: card.login })" @click.prevent="!busy && emit('unmark', card.login)">{{ t('card.unmark') }}</a>
+        <a v-else href="#" class="card-link mark-member-link" :data-login="card.login" :title="t('card.markTitle')"
+           :aria-label="t('card.markLabel', { login: card.login })" @click.prevent="!busy && emit('mark', card.login)">{{ t('card.mark') }}</a>
       </template>
     </div>
   </div>

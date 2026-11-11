@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { api } from '@/api';
 import { ApiError } from '@/api/client';
 import { useSession } from '@/composables/useSession';
+import LanguageSelector from '@/components/LanguageSelector.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 
 /**
@@ -13,16 +15,18 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 const route = useRoute();
 const router = useRouter();
 const { signedIn } = useSession();
+const { t } = useI18n();
 
-const CALLBACK_ERRORS: Record<string, string> = {
-  github_not_verified: 'GitHub sign-in could not be verified. Please try again.',
-  github_failed: 'GitHub sign-in failed. Please try again.',
-};
+/** codes of /login?error=… (GitHub sign-in); an unknown code shows the generic failure */
+const CALLBACK_ERRORS = ['github_not_verified', 'github_failed'] as const;
+const callbackError = (code: string) =>
+  `login.callbackErrors.${(CALLBACK_ERRORS as readonly string[]).includes(code) ? code : 'github_failed'}`;
 
-const message = ref<{ type: 'success' | 'danger'; text: string } | null>(
-  route.query.signedOut ? { type: 'success', text: 'You have been signed out.' }
-    : route.query.signIn === 'required' ? { type: 'danger', text: 'Please sign in to continue.' }
-    : typeof route.query.error === 'string' ? { type: 'danger', text: CALLBACK_ERRORS[route.query.error] ?? CALLBACK_ERRORS.github_failed }
+// the text is a key, so the alert follows a change of language
+const message = ref<{ type: 'success' | 'danger'; key: string } | null>(
+  route.query.signedOut ? { type: 'success', key: 'login.signedOut' }
+    : route.query.signIn === 'required' ? { type: 'danger', key: 'login.signInRequired' }
+    : typeof route.query.error === 'string' ? { type: 'danger', key: callbackError(route.query.error) }
       : null,
 );
 const tokenOpen = ref(false);
@@ -40,7 +44,7 @@ async function toggleToken() {
 
 async function signInWithToken() {
   if (!token.value.trim()) {
-    message.value = { type: 'danger', text: 'Please enter a personal access token.' };
+    message.value = { type: 'danger', key: 'login.tokenMissing' };
     tokenInput.value?.focus();
     return;
   }
@@ -52,8 +56,7 @@ async function signInWithToken() {
   } catch (e) {
     message.value = {
       type: 'danger',
-      text: e instanceof ApiError && e.status === 401 ? 'GitHub rejected this personal access token.'
-        : 'Could not verify the token with GitHub. Please try again.',
+      key: e instanceof ApiError && e.status === 401 ? 'login.tokenRejected' : 'login.tokenUnverified',
     };
     token.value = '';
     tokenInput.value?.focus();
@@ -65,21 +68,24 @@ async function signInWithToken() {
 
 <template>
   <div class="bg-body-tertiary login-page">
-    <ThemeToggle />
+    <div class="login-settings position-fixed bottom-0 end-0 mb-3 me-3 d-flex align-items-center gap-2">
+      <LanguageSelector />
+      <ThemeToggle />
+    </div>
 
     <main class="auth-wrapper">
       <div class="auth-card">
 
         <div class="text-center mb-4">
           <span class="auth-logo mb-3" aria-hidden="true"><i class="bi bi-mortarboard-fill"></i></span>
-          <h1 class="h4 fw-semibold mb-1">Sign in to Grade Checker</h1>
-          <p class="text-body-secondary small mb-0">Use your GitHub account to continue</p>
+          <h1 class="h4 fw-semibold mb-1">{{ t('login.title') }}</h1>
+          <p class="text-body-secondary small mb-0">{{ t('login.subtitle') }}</p>
         </div>
 
         <div v-if="message" class="alert alert-dismissible fade show small" :class="`alert-${message.type}`" role="alert">
           <i class="bi me-1" :class="message.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-circle'"></i>
-          {{ message.text }}
-          <button type="button" class="btn-close" aria-label="Close" @click="message = null"></button>
+          {{ t(message.key) }}
+          <button type="button" class="btn-close" :aria-label="t('common.close')" @click="message = null"></button>
         </div>
 
         <div class="card border-0 shadow-sm rounded-3">
@@ -88,28 +94,28 @@ async function signInWithToken() {
             <a class="btn btn-github btn-lg w-100 d-flex align-items-center justify-content-center gap-2 fs-6 py-2"
                :href="api.gitHubSignInUrl">
               <i class="bi bi-github" aria-hidden="true"></i>
-              Continue with GitHub
+              {{ t('login.continueWithGitHub') }}
             </a>
 
-            <div class="auth-divider my-4">or</div>
+            <div class="auth-divider my-4">{{ t('login.or') }}</div>
 
             <button class="btn btn-link btn-token-toggle w-100 text-body-secondary text-decoration-none small d-flex align-items-center justify-content-center gap-1 p-0"
                     type="button" :aria-expanded="tokenOpen" aria-controls="token-form" @click="toggleToken">
               <i class="bi bi-key"></i>
-              Sign in with a personal access token
+              {{ t('login.tokenToggle') }}
               <i class="bi bi-chevron-down small"></i>
             </button>
 
             <div v-show="tokenOpen" id="token-form">
               <form class="pt-3" @submit.prevent="signInWithToken">
-                <label for="access-token" class="form-label small fw-semibold">Personal access token</label>
+                <label for="access-token" class="form-label small fw-semibold">{{ t('login.tokenLabel') }}</label>
                 <input ref="tokenInput" v-model="token" type="password" name="access-token" class="form-control" id="access-token"
                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" required>
                 <div class="form-text">
-                  Generate one in
-                  <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">GitHub settings</a>.
+                  {{ t('login.tokenHelpBefore') }}
+                  <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">{{ t('login.tokenHelpLink') }}</a>{{ t('login.tokenHelpAfter') }}
                 </div>
-                <button type="submit" class="btn btn-outline-secondary w-100 mt-3" :disabled="sending">Sign in with token</button>
+                <button type="submit" class="btn btn-outline-secondary w-100 mt-3" :disabled="sending">{{ t('login.tokenSubmit') }}</button>
               </form>
             </div>
 
@@ -117,7 +123,7 @@ async function signInWithToken() {
         </div>
 
         <p class="text-center text-body-secondary small mt-4 mb-0">
-          Grade Checker uses GitHub to read repositories, commits and contributors.
+          {{ t('login.footer') }}
         </p>
 
       </div>
@@ -139,6 +145,7 @@ async function signInWithToken() {
   --gh-btn-color: #1f2328;
   --gh-btn-border: #f6f8fa;
 }
+.login-settings { z-index: 1500; }
 .auth-wrapper {
   min-height: 100vh;
   display: flex;

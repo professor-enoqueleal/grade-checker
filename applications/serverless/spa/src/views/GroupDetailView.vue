@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import type { TooltipItem } from 'chart.js';
 import { api, type PeriodQuery } from '@/api';
 import { ApiError, errorMessage } from '@/api/client';
@@ -16,7 +17,7 @@ import LinkIdentityModal from '@/components/LinkIdentityModal.vue';
 import PeriodSelector from '@/components/PeriodSelector.vue';
 import { barDataset, CHART_COLORS } from '@/utils/charts';
 import { formatMax, formatPercentage } from '@/utils/format';
-import { gradeColumns, gradingNotice, MILESTONE_KEYS } from '@/utils/grades';
+import { gradeColumns, gradingNotice, MILESTONE_KEYS, milestoneHeader } from '@/utils/grades';
 
 /**
  * Group detail (capabilities serverless-contributions-dashboard, milestone-period-filter, group-members, identity-aliases,
@@ -24,14 +25,16 @@ import { gradeColumns, gradingNotice, MILESTONE_KEYS } from '@/utils/grades';
  * and how grades are calculated.
  */
 const route = useRoute();
+const { t } = useI18n();
 const { session } = useSession();
 const { config, load: loadConfig } = useConfig();
 const isAdmin = computed(() => session.me?.isAdmin === true);
 
 const groupId = Number(route.query.id);
 const detail = shallowRef<GroupDetail | null>(null);
-const pageError = ref('');
-const membersError = ref('');
+// messages are computed on render, so they follow a change of language
+const pageError = ref<(() => string) | null>(null);
+const membersError = ref<(() => string) | null>(null);
 const memberBusy = ref(false);
 
 // ------------------------------------------------------------ group, contributors and members
@@ -42,32 +45,32 @@ async function loadGroup() {
 
 async function markMember(login: string) {
   memberBusy.value = true;
-  membersError.value = '';
+  membersError.value = null;
   try {
     await api.addMember(groupId, login, null, false);
     await Promise.all([loadGroup(), loadReport()]);
   } catch (e) {
-    showMembersError(errorMessage(e, 'Could not add the member. Please try again.'));
+    showMembersError(() => errorMessage(e, t('detail.addMemberError')));
   } finally {
     memberBusy.value = false;
   }
 }
 
 async function unmarkMember(login: string) {
-  if (!window.confirm(`Remove ${login} from the members of this group? Their commits will no longer receive a grade.`)) return;
+  if (!window.confirm(t('members.confirmRemove', { login }))) return;
   memberBusy.value = true;
-  membersError.value = '';
+  membersError.value = null;
   try {
     await api.removeMember(groupId, login);
     await Promise.all([loadGroup(), loadReport()]);
   } catch (e) {
-    showMembersError(errorMessage(e, 'Could not remove the member. Please try again.'));
+    showMembersError(() => errorMessage(e, t('detail.removeMemberError')));
   } finally {
     memberBusy.value = false;
   }
 }
 
-function showMembersError(text: string) {
+function showMembersError(text: () => string) {
   membersError.value = text;
   requestAnimationFrame(() => document.getElementById('members-alert')?.scrollIntoView({ block: 'center' }));
 }
@@ -77,16 +80,16 @@ function showMembersError(text: string) {
 const period = ref<PeriodQuery>({ period: 'all' });
 const report = shallowRef<ContributionsReport | null>(null);
 const loading = ref(false);
-const dashboardError = ref('');
+const dashboardError = ref<(() => string) | null>(null);
 
 async function loadReport() {
   loading.value = true;
-  dashboardError.value = '';
+  dashboardError.value = null;
   try {
     report.value = await api.contributions(groupId, period.value);
   } catch (e) {
     report.value = null;   // never show data of a previous load next to the error
-    dashboardError.value = errorMessage(e, 'Could not load the dashboard. Please try again.');
+    dashboardError.value = () => errorMessage(e, t('detail.dashboardError'));
   } finally {
     loading.value = false;
   }
@@ -110,11 +113,11 @@ const totalLines = computed(() => rows.value.reduce((sum, r) => sum + r.totalAdd
 
 /** one alert slot, as before: the truncation warning wins over "no contributions" */
 const dashboardAlert = computed<{ type: string; text: string } | null>(() => {
-  if (dashboardError.value) return { type: 'danger', text: dashboardError.value };
+  if (dashboardError.value) return { type: 'danger', text: dashboardError.value() };
   const r = report.value;
   if (!r) return null;
-  if (r.truncated) return { type: 'warning', text: `Only the ${r.totalCommits} most recent commits in this period were considered (configured limit).` };
-  if (rows.value.length === 0 || totalLines.value === 0) return { type: 'info', text: 'No contributions found in this period.' };
+  if (r.truncated) return { type: 'warning', text: t('detail.truncated', { count: r.totalCommits }) };
+  if (rows.value.length === 0 || totalLines.value === 0) return { type: 'info', text: t('detail.noContributions') };
   return null;
 });
 
@@ -129,11 +132,11 @@ const gradesChart = computed(() => {
     if (graded.length === 0) return null;
     const provisional = g.provisionalMilestones ?? [];
     return {
-      title: `Grades by milestone (0–${formatMax(max * MILESTONE_KEYS.length)})`,
+      title: t('detail.gradesChartAll', { max: formatMax(max * MILESTONE_KEYS.length) }),
       labels: graded.map((s) => s.author),
       max: max * MILESTONE_KEYS.length,
       datasets: MILESTONE_KEYS.map((key, i) => barDataset(
-        `M${i + 1}` + (provisional.includes(key) ? ' (in progress)' : ''),
+        milestoneHeader(i, provisional.includes(key)),
         graded.map((s) => (s.milestoneGrades ? s.milestoneGrades[key] : null)),
         CHART_COLORS[key], MILESTONE_KEYS.length)),
     };
@@ -141,10 +144,10 @@ const gradesChart = computed(() => {
   const graded = r.rows.filter((s) => s.grade !== null && s.grade !== undefined);
   if (graded.length === 0) return null;
   return {
-    title: `Milestone ${r.period.substring(1)} grade (0–${formatMax(max)})` + (g.provisional ? ' (in progress)' : ''),
+    title: t('detail.gradesChartMilestone', { n: r.period.substring(1), max: formatMax(max) }) + (g.provisional ? t('common.inProgress') : ''),
     labels: graded.map((s) => s.author),
     max,
-    datasets: [barDataset('Grade', graded.map((s) => s.grade ?? null), CHART_COLORS[r.period] ?? CHART_COLORS.m2, 1)],
+    datasets: [barDataset(t('detail.grade'), graded.map((s) => s.grade ?? null), CHART_COLORS[r.period] ?? CHART_COLORS.m2, 1)],
   };
 });
 
@@ -153,14 +156,14 @@ const linesChart = computed(() => {
   if (rows.value.length === 0 || totalLines.value === 0) return null;
   const stats = rows.value;
   return {
-    labels: stats.map((s) => s.author + (s.linked === false ? ' (no account)' : '')),
+    labels: stats.map((s) => s.author + (s.linked === false ? t('detail.noAccount') : '')),
     datasets: [
-      barDataset('Additions', stats.map((s) => s.totalAdditions), CHART_COLORS.additions, 2),
-      barDataset('Deletions', stats.map((s) => s.totalDeletions), CHART_COLORS.deletions, 2),
+      barDataset(t('detail.additions'), stats.map((s) => s.totalAdditions), CHART_COLORS.additions, 2),
+      barDataset(t('detail.deletions'), stats.map((s) => s.totalDeletions), CHART_COLORS.deletions, 2),
     ],
     footer: (items: TooltipItem<'bar'>[]) => {
       const s = stats[items[0].dataIndex];
-      return `${s.totalAdditions + s.totalDeletions} lines (${formatPercentage(s.percentage)})`;
+      return t('detail.linesFooter', { lines: s.totalAdditions + s.totalDeletions, percentage: formatPercentage(s.percentage) });
     },
   };
 });
@@ -173,12 +176,12 @@ const linesLabel = (item: TooltipItem<'bar'>) => `${item.dataset.label}: ${item.
 const linkModal = ref<InstanceType<typeof LinkIdentityModal> | null>(null);
 
 async function unlink(identityKey: string, label: string) {
-  if (!window.confirm(`Unlink ${label}? Its commits will no longer be counted for this student.`)) return;
+  if (!window.confirm(t('detail.confirmUnlink', { label }))) return;
   try {
     await api.unlinkIdentity(groupId, identityKey);
     await loadReport();
   } catch (e) {
-    dashboardError.value = errorMessage(e, 'Could not unlink the identity. Please try again.');
+    dashboardError.value = () => errorMessage(e, t('detail.unlinkError'));
   }
 }
 
@@ -186,14 +189,14 @@ async function unlink(identityKey: string, label: string) {
 
 onMounted(async () => {
   if (!Number.isInteger(groupId) || groupId <= 0) {
-    pageError.value = "The 'id' parameter is required.";
+    pageError.value = () => t('common.idRequired');
     return;
   }
   try {
     await Promise.all([loadGroup(), loadConfig()]);
   } catch (e) {
-    pageError.value = e instanceof ApiError && e.status === 404 ? 'Group not found.'
-      : errorMessage(e, 'Could not load the group. Please try again.');
+    pageError.value = e instanceof ApiError && e.status === 404 ? () => t('common.groupNotFound')
+      : () => errorMessage(e, t('detail.loadError'));
     return;
   }
   loadReport();
@@ -202,36 +205,36 @@ onMounted(async () => {
 
 <template>
   <main class="container">
-    <AppBreadcrumb :items="[{ label: 'Home', to: '/home' }, { label: `Group ${Number.isInteger(groupId) ? groupId : ''}` }]" />
+    <AppBreadcrumb :items="[{ label: t('common.home'), to: '/home' }, { label: t('common.group', { id: Number.isInteger(groupId) ? groupId : '' }) }]" />
 
-    <div v-if="pageError" class="alert alert-danger" role="alert" id="group-page-error">{{ pageError }}</div>
-    <div v-else-if="!detail || !config" class="gc-loader" role="status" aria-label="Loading"></div>
+    <div v-if="pageError" class="alert alert-danger" role="alert" id="group-page-error">{{ pageError() }}</div>
+    <div v-else-if="!detail || !config" class="gc-loader" role="status" :aria-label="t('common.loading')"></div>
 
     <template v-else>
-      <h4>Group information</h4>
+      <h4>{{ t('detail.information') }}</h4>
 
       <div class="details row">
         <div class="col-12 col-lg-6">
           <div class="mb-2 row">
-            <label for="groupName" class="col-sm-3 col-form-label">Group Name:</label>
+            <label for="groupName" class="col-sm-3 col-form-label">{{ t('detail.groupName') }}</label>
             <div class="col-sm-9">
               <input type="text" readonly class="form-control-plaintext" id="groupName" :value="detail.group.name">
             </div>
           </div>
           <div class="mb-2 row">
-            <span class="col-sm-3 col-form-label">URL:</span>
+            <span class="col-sm-3 col-form-label">{{ t('detail.url') }}</span>
             <div class="col-sm-9">
               <a :href="detail.group.repositoryUrl" class="form-control-plaintext text-break" target="_blank" rel="noopener noreferrer">{{ detail.group.repositoryUrl }}</a>
             </div>
           </div>
           <div class="mb-2 row">
-            <label for="owner" class="col-sm-3 col-form-label">Owner:</label>
+            <label for="owner" class="col-sm-3 col-form-label">{{ t('detail.owner') }}</label>
             <div class="col-sm-9">
               <input type="text" readonly class="form-control-plaintext" id="owner" :value="detail.group.owner">
             </div>
           </div>
           <div class="mb-2 row">
-            <label for="repository" class="col-sm-3 col-form-label">Repository name:</label>
+            <label for="repository" class="col-sm-3 col-form-label">{{ t('detail.repository') }}</label>
             <div class="col-sm-9">
               <input type="text" readonly class="form-control-plaintext" id="repository" :value="detail.group.repository">
             </div>
@@ -240,20 +243,20 @@ onMounted(async () => {
 
         <div class="col-12 col-lg-6">
           <div class="mb-2 row">
-            <label for="number-of-contributors" class="col-sm-4 col-form-label">Number of contributors:</label>
+            <label for="number-of-contributors" class="col-sm-4 col-form-label">{{ t('detail.contributors') }}</label>
             <div class="col-sm-8">
               <input type="text" readonly class="form-control-plaintext" id="number-of-contributors"
                      :value="detail.contributorsError ? '—' : detail.contributorsCount ?? '—'">
             </div>
           </div>
           <div class="mb-2 row">
-            <label for="members" class="col-sm-4 col-form-label">Number of members:</label>
+            <label for="members" class="col-sm-4 col-form-label">{{ t('detail.membersCount') }}</label>
             <div class="col-sm-8">
               <input type="text" readonly class="form-control-plaintext" id="members" :value="detail.members.length">
             </div>
           </div>
           <div v-if="isAdmin" class="row">
-            <RouterLink :to="{ path: '/group/members', query: { id: String(groupId) } }" class="col-form-label" id="manage-members-link">Manage members</RouterLink>
+            <RouterLink :to="{ path: '/group/members', query: { id: String(groupId) } }" class="col-form-label" id="manage-members-link">{{ t('detail.manageMembers') }}</RouterLink>
           </div>
         </div>
       </div>
@@ -261,11 +264,11 @@ onMounted(async () => {
       <hr>
 
       <!-- contributors (GitHub) and members without commits (openspec capability group-members) -->
-      <h4>Contributors and members</h4>
+      <h4>{{ t('detail.contributorsAndMembers') }}</h4>
 
       <div v-if="detail.contributorsError" class="alert alert-warning" role="alert" id="contributors-error">{{ detail.contributorsError }}</div>
-      <div v-if="membersError" id="members-alert" class="alert alert-danger small" role="alert">{{ membersError }}</div>
-      <p v-if="detail.cards.length === 0" class="text-body-secondary" id="no-cards">No contributors or members yet.</p>
+      <div v-if="membersError" id="members-alert" class="alert alert-danger small" role="alert">{{ membersError() }}</div>
+      <p v-if="detail.cards.length === 0" class="text-body-secondary" id="no-cards">{{ t('detail.noCards') }}</p>
 
       <!-- 1 column < 576px, 2 >= 576px, 3 >= 768px, 4 >= 992px: narrower cards keep the square avatar small -->
       <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mb-4">
@@ -284,14 +287,14 @@ onMounted(async () => {
                         @select="selectPeriod" @custom="applyCustom" />
 
         <template v-if="report">
-          <h5 id="dashboard-title">Contributions Dashboard</h5>
-          <p id="dashboard-summary" class="text-body-secondary small">{{ report.totalCommits }} commits · {{ report.periodText }} (merge commits excluded)</p>
+          <h5 id="dashboard-title">{{ t('detail.dashboard') }}</h5>
+          <p id="dashboard-summary" class="text-body-secondary small">{{ t('detail.summary', { commits: report.totalCommits, period: report.periodText }) }}</p>
         </template>
         <div v-if="dashboardAlert" id="dashboard-alert" class="alert mb-4" :class="`alert-${dashboardAlert.type}`" role="alert">{{ dashboardAlert.text }}</div>
         <div v-if="report && notice" id="grading-alert" class="alert alert-info mb-4 small" role="status">{{ notice }}</div>
       </div>
 
-      <div v-if="loading" class="gc-loader" id="loader" role="status" aria-label="Loading"></div>
+      <div v-if="loading" class="gc-loader" id="loader" role="status" :aria-label="t('common.loading')"></div>
 
       <div v-if="report" class="row" id="contributions-section">
         <div class="col-12">
@@ -308,9 +311,9 @@ onMounted(async () => {
                               :max="gradesChart.max" :chart-label="gradesChart.title" :tooltip-label="pointsLabel" />
         </div>
         <div v-if="linesChart" class="col-12 mb-4" id="lines-chart-section">
-          <h6 id="lines-chart-title">Lines changed (additions + deletions)</h6>
+          <h6 id="lines-chart-title">{{ t('detail.linesChart') }}</h6>
           <HorizontalBarChart canvas-id="lines-chart" :labels="linesChart.labels" :datasets="linesChart.datasets"
-                              chart-label="Lines changed (additions + deletions)" :tooltip-label="linesLabel"
+                              :chart-label="t('detail.linesChart')" :tooltip-label="linesLabel"
                               :tooltip-footer="linesChart.footer" />
         </div>
       </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { api } from '@/api';
 import { errorMessage } from '@/api/client';
 import { useModal } from '@/composables/useModal';
@@ -11,11 +12,13 @@ import { useModal } from '@/composables/useModal';
 const emit = defineEmits<{ saved: [] }>();
 
 const { element, show, hide } = useModal();
+const { t } = useI18n();
 const id = ref<number | null>(null);
 const name = ref('');
 const repositoryUrl = ref('');
 const originalUrl = ref('');
-const error = ref('');
+// computed on render, so it follows a change of language
+const error = ref<(() => string) | null>(null);
 const saving = ref(false);
 
 const repositoryChanged = computed(() => id.value !== null && repositoryUrl.value.trim() !== originalUrl.value);
@@ -25,17 +28,17 @@ function open(group?: { id: number; name: string; repositoryUrl: string }) {
   name.value = group?.name ?? '';
   repositoryUrl.value = group?.repositoryUrl ?? '';
   originalUrl.value = group?.repositoryUrl ?? '';
-  error.value = '';
+  error.value = null;
   saving.value = false;
   show();
 }
 
 async function save() {
-  error.value = '';
+  error.value = null;
   const n = name.value.trim();
   const url = repositoryUrl.value.trim();
   if (!n || !url) {
-    error.value = 'Please fill in the name and the repository URL.';
+    error.value = () => t('groupForm.required');
     return;
   }
   saving.value = true;
@@ -45,7 +48,7 @@ async function save() {
     hide();
     emit('saved');
   } catch (e) {
-    error.value = errorMessage(e, 'Could not save the group. Please try again.');
+    error.value = () => errorMessage(e, t('groupForm.saveError'));
   } finally {
     saving.value = false;
   }
@@ -60,28 +63,26 @@ defineExpose({ open });
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h1 class="modal-title fs-5" id="groupModalLabel">{{ id === null ? 'Add a new group' : 'Edit group' }}</h1>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <h1 class="modal-title fs-5" id="groupModalLabel">{{ t(id === null ? 'groupForm.addTitle' : 'groupForm.editTitle') }}</h1>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" :aria-label="t('common.close')"></button>
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <label for="group-name" class="form-label">Name</label>
+              <label for="group-name" class="form-label">{{ t('common.name') }}</label>
               <input type="text" class="form-control" id="group-name" maxlength="255" required v-model="name">
             </div>
             <div class="mb-3">
-              <label for="repository-url" class="form-label">Repository URL</label>
+              <label for="repository-url" class="form-label">{{ t('groupForm.repositoryUrl') }}</label>
               <input type="url" class="form-control" id="repository-url" maxlength="255"
-                     placeholder="https://github.com/owner/repository" required v-model="repositoryUrl">
+                     :placeholder="t('groupForm.repositoryPlaceholder')" required v-model="repositoryUrl">
             </div>
             <div v-show="repositoryChanged" id="repository-change-warning" class="alert alert-warning small" role="status">
-              Contributors and grades will come from the new repository. Members and linked identities stay.
-              If this group comes from the seed script, update the seed too, or the group with the old URL is created
-              again at the next seed.
+              {{ t('groupForm.repositoryChanged') }}
             </div>
-            <div v-if="error" id="group-form-error" class="alert alert-danger mb-0 small" role="alert">{{ error }}</div>
+            <div v-if="error" id="group-form-error" class="alert alert-danger mb-0 small" role="alert">{{ error() }}</div>
           </div>
           <div class="modal-footer">
-            <button type="submit" class="btn btn-primary" id="save-group" :disabled="saving">Save</button>
+            <button type="submit" class="btn btn-primary" id="save-group" :disabled="saving">{{ t('common.save') }}</button>
           </div>
         </div>
       </div>

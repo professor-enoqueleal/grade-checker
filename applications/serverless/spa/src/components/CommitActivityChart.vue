@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { CommitActivity } from '@/api/types';
 import { CHART_COLORS, CHART_SURFACE, Chart, columnTopRadius, GRID_COLOR, TICK_COLOR } from '@/utils/charts';
 
@@ -11,9 +12,11 @@ const props = defineProps<{ activity: CommitActivity }>();
 const canvas = ref<HTMLCanvasElement | null>(null);
 let chart: Chart<'bar', number[], string> | null = null;
 
-const plural = (n: number) => n + (n === 1 ? ' commit' : ' commits');
+const { t, locale } = useI18n();
+const plural = (n: number) => t('commits.count', { n }, n);
 
-onMounted(() => {
+function draw() {
+  chart?.destroy();
   if (!canvas.value) return;
   const { labels, series, tooltips } = props.activity;
   chart = new Chart<'bar', number[], string>(canvas.value, {
@@ -51,14 +54,17 @@ onMounted(() => {
             footer: (items) => {
               if (series.length < 2) return '';
               const i = items[0].dataIndex;
-              return 'Total: ' + plural(series.reduce((sum, s) => sum + s.counts[i], 0));
+              return t('commits.totalCount', { commits: plural(series.reduce((sum, s) => sum + s.counts[i], 0)) });
             },
           },
         },
       },
     },
   });
-});
+}
+
+onMounted(draw);
+watch(locale, draw);   // the tooltip texts follow the language
 onBeforeUnmount(() => { chart?.destroy(); chart = null; });
 </script>
 

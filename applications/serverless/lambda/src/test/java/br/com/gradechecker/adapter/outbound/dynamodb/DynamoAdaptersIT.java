@@ -18,7 +18,11 @@ import org.junit.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -147,15 +151,55 @@ public class DynamoAdaptersIT {
     }
 
     @Test
+    public void usesKeepTheSessionUntilTheAbsoluteLimit() {
+        Instant login = Instant.parse("2026-11-06T10:00:00Z");
+        Session session = store(login).create("ana", "token");
+        // one call every 20 minutes: valid until 18:00, then gone even with use
+        for (int minutes = 20; minutes < 8 * 60; minutes += 20) {
+            assertNotNull("use at +" + minutes + " min", store(login.plusSeconds(minutes * 60L)).find(session.getId()));
+        }
+        assertNull(store(login.plusSeconds(8 * 60 * 60)).find(session.getId()));
+    }
+
+    @Test
+    public void signOutDuringAnExtensionDoesNotRecreateTheSession() {
+        Instant login = Instant.parse("2026-11-06T10:00:00Z");
+        DynamoSessionStore sessions = store(login);
+        Session session = sessions.create("ana", "token");
+        sessions.delete(session.getId());
+        assertNull(store(login.plusSeconds(600)).find(session.getId()));
+        assertNull(store(login.plusSeconds(600)).find(session.getId()));
+    }
+
+    @Test
+    public void sessionsCreatedBeforeTheIdleRuleKeepTheirDeadline() {
+        Instant login = Instant.parse("2026-11-06T10:00:00Z");
+        Map<String, AttributeValue> item = new HashMap<>();
+        item.put("PK", AttributeValue.builder().s("SESSION#old-session").build());
+        item.put("login", AttributeValue.builder().s("ana").build());
+        item.put("token", AttributeValue.builder().s("token").build());
+        item.put("expiresAt", AttributeValue.builder().n(Long.toString(login.getEpochSecond() + 8 * 60 * 60)).build());
+        dynamo.client().putItem(PutItemRequest.builder().tableName(dynamo.ephemeralTable()).item(item).build());
+        assertNotNull(store(login.plusSeconds(3 * 60 * 60)).find("old-session"));
+        assertNull(store(login.plusSeconds(8 * 60 * 60)).find("old-session"));
+    }
+
+    private DynamoSessionStore store(Instant now) {
+        return new DynamoSessionStore(dynamo, Clock.fixed(now, ZoneOffset.UTC), 30 * 60, 8 * 60 * 60);
+    }
+
+    @Test
     public void sessionsExpireAndStatesAreSingleUse() {
         Clock now = Clock.fixed(Instant.parse("2026-11-06T12:00:00Z"), ZoneOffset.UTC);
-        DynamoSessionStore sessions = new DynamoSessionStore(dynamo, now);
+        DynamoSessionStore sessions = new DynamoSessionStore(dynamo, now, 30 * 60, 8 * 60 * 60);
         Session session = sessions.create("ana", "token");
         assertEquals("token", sessions.find(session.getId()).getAccessToken());
         assertNull(sessions.find("unknown"));
 
-        DynamoSessionStore later = new DynamoSessionStore(dynamo, Clock.offset(now, java.time.Duration.ofHours(8).plusSeconds(1)));
+        DynamoSessionStore later = new DynamoSessionStore(dynamo, Clock.offset(now, java.time.Duration.ofHours(8).plusSeconds(1)), 30 * 60, 8 * 60 * 60);
         assertNull("expired before the TTL deletes it", later.find(session.getId()));
+        DynamoSessionStore idle = new DynamoSessionStore(dynamo, Clock.offset(now, java.time.Duration.ofMinutes(30).plusSeconds(1)), 30 * 60, 8 * 60 * 60);
+        assertNull("30 minutes without use", idle.find(session.getId()));
 
         String state = sessions.createState();
         assertTrue(sessions.consumeState(state));

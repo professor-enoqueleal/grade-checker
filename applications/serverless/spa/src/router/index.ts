@@ -7,7 +7,7 @@ import { applyTheme, useTheme } from '@/composables/useTheme';
  * Same URLs as the JSP version (bookmarks and E2E tests keep working). CloudFront (a CloudFront Function) and the Vite
  * dev server answer index.html for these paths; /api/* goes to the API Gateway.
  *
- * meta.public: no session needed. meta.nav: link of the navbar marked as current.
+ * meta.title: key of the tab title (src/i18n, set by App.vue). meta.public: no session needed. meta.nav: link of the navbar marked as current.
  */
 declare module 'vue-router' {
   interface RouteMeta {
@@ -19,15 +19,15 @@ declare module 'vue-router' {
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/home' },
-  { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { title: 'Sign in · Grade Checker', public: true } },
+  { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { title: 'titles.login', public: true } },
   { path: '/authentication.jsp', redirect: '/login' },
-  { path: '/home', name: 'home', component: () => import('@/views/HomeView.vue'), meta: { title: 'Grade Checker' } },
-  { path: '/detail', name: 'group', component: () => import('@/views/GroupDetailView.vue'), meta: { title: 'Grade Checker | Group Detail' } },
-  { path: '/contributions-detail', name: 'commits', component: () => import('@/views/CommitsView.vue'), meta: { title: 'Grade Checker | Commits Detail' } },
-  { path: '/grades', name: 'grades', component: () => import('@/views/GradesView.vue'), meta: { title: 'Grade Checker | Class grades', nav: 'grades' } },
-  { path: '/groups', name: 'groups', component: () => import('@/views/GroupsView.vue'), meta: { title: 'Grade Checker | Manage groups', nav: 'groups' } },
-  { path: '/group/members', name: 'members', component: () => import('@/views/GroupMembersView.vue'), meta: { title: 'Grade Checker | Manage members' } },
-  { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue'), meta: { title: 'Grade Checker | Page not found' } },
+  { path: '/home', name: 'home', component: () => import('@/views/HomeView.vue'), meta: { title: 'titles.home' } },
+  { path: '/detail', name: 'group', component: () => import('@/views/GroupDetailView.vue'), meta: { title: 'titles.group' } },
+  { path: '/contributions-detail', name: 'commits', component: () => import('@/views/CommitsView.vue'), meta: { title: 'titles.commits' } },
+  { path: '/grades', name: 'grades', component: () => import('@/views/GradesView.vue'), meta: { title: 'titles.grades', nav: 'grades' } },
+  { path: '/groups', name: 'groups', component: () => import('@/views/GroupsView.vue'), meta: { title: 'titles.groups', nav: 'groups' } },
+  { path: '/group/members', name: 'members', component: () => import('@/views/GroupMembersView.vue'), meta: { title: 'titles.members' } },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue'), meta: { title: 'titles.notFound' } },
 ];
 
 export const router = createRouter({
@@ -53,7 +53,6 @@ router.beforeEach(async (to) => {
 });
 
 router.afterEach((to) => {
-  document.title = to.meta.title;
   // the theme toggle exists only on the sign-in page; the other pages stay light, as before
   applyTheme(to.name === 'login' ? useTheme().theme.value : null);
 });

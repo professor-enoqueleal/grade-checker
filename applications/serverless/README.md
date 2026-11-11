@@ -181,7 +181,7 @@ GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxx GRADE_CHECKER_ADMINS=seu-login sh scripts/depl
 
 O script confere que o parâmetro do SSM existe (sem ler o valor), roda `sam build` e `sam deploy`, gera a SPA e a envia ao bucket (o `index.html` sem cache no navegador e os `assets/` com cache longo), invalida o cache do CloudFront e roda o seed dos grupos. No fim, mostra a URL da aplicação e a callback URL. O primeiro deploy leva de 5 a 15 minutos, por causa do CloudFront.
 
-Variáveis opcionais: `ENVIRONMENT` (padrão `test`, também a tag `Environment`), `APP_DOMAIN` e `APP_CERTIFICATE_ARN` (domínio próprio, sempre juntos; veja abaixo), `BUDGET_EMAIL` e `BUDGET_AMOUNT` (orçamento mensal com alerta em 80%, padrão 5 USD), `MAX_CONCURRENCY` (concorrência reservada; contas novas costumam não permitir), `DATA_TABLE_DELETION_POLICY` (`Delete`, o padrão, ou `Retain`, que mantém a tabela de dados quando a stack é apagada).
+Variáveis opcionais: `ENVIRONMENT` (padrão `test`, também a tag `Environment`), `APP_DOMAIN` e `APP_CERTIFICATE_ARN` (domínio próprio, sempre juntos; veja abaixo), `BUDGET_EMAIL` e `BUDGET_AMOUNT` (orçamento mensal com alerta em 80%, padrão 5 USD), `MAX_CONCURRENCY` (concorrência reservada; contas novas costumam não permitir), `DATA_TABLE_DELETION_POLICY` (`Delete`, o padrão, ou `Retain`, que mantém a tabela de dados quando a stack é apagada), `SESSION_IDLE_MINUTES` e `SESSION_MAX_HOURS` (a sessão cai depois de 30 minutos sem uso e, mesmo com uso, 8 horas depois do login; no GitHub Actions, variáveis do repositório de mesmo nome).
 
 **Depois do primeiro deploy:** troque a callback URL do GitHub App de produção pela URL mostrada no fim (`https://<id>.cloudfront.net/api/auth/callback`, ou a do domínio próprio). Ela precisa ser a **primeira** da lista: o backend não envia `redirect_uri`, então o GitHub usa a primeira. Ela muda só se a stack for apagada e criada de novo ou se o domínio próprio mudar.
 
@@ -200,7 +200,7 @@ A aplicação pode responder num subdomínio de um domínio registrado fora da A
    Crie no Cloudflare o CNAME de validação mostrado (`Name` → `Value`, nuvem cinza) e espere o status `ISSUED` (`aws acm wait certificate-validated --region us-east-1 --certificate-arn <ARN>`). **Mantenha esse registro:** é com ele que o ACM renova o certificado.
 2. **Deploy** com `APP_DOMAIN=gc.enoque.dev APP_CERTIFICATE_ARN=<ARN>` (ou as variáveis do repositório de mesmo nome, no GitHub Actions). No fim, o script mostra o alvo do CNAME.
 3. **DNS no Cloudflare:** CNAME `gc` → o `DistributionDomainName` da stack (`<id>.cloudfront.net`), em **DNS only** (nuvem cinza). Com o proxy do Cloudflare ligado, seriam duas CDNs em série.
-4. **GitHub App:** `https://gc.enoque.dev/api/auth/callback` como **primeira** callback URL. O `http://localhost:5173/api/auth/callback` do desenvolvimento local pode ficar abaixo, mas, para testar o login com GitHub em localhost, ele precisa voltar ao topo.
+4. **GitHub App de produção:** `https://gc.enoque.dev/api/auth/callback` como **primeira** callback URL. O desenvolvimento local usa outro GitHub App, com a callback `http://localhost:5173/api/auth/callback`, então o app de produção não precisa ser alterado para testar em localhost.
 
 Para voltar ao domínio padrão, faça o deploy sem as duas variáveis. O certificado pode ficar na conta.
 
@@ -235,7 +235,8 @@ Três workflows, na raiz do repositório (`.github/workflows/`), trabalham nesta
    gh variable set AWS_DEPLOY_ROLE_ARN --body "<ARN mostrado acima>"
    gh variable set APP_CLIENT_ID --body "Iv1.xxxxxxxxxxxx"
    gh variable set APP_ADMINS --body "seu-login"
-   # opcionais: APP_ENVIRONMENT (padrão test), BUDGET_EMAIL, APP_DOMAIN e APP_CERTIFICATE_ARN (domínio próprio)
+   # opcionais: APP_ENVIRONMENT (padrão test), BUDGET_EMAIL, APP_DOMAIN e APP_CERTIFICATE_ARN (domínio próprio),
+   # SESSION_IDLE_MINUTES (padrão 30) e SESSION_MAX_HOURS (padrão 8)
    ```
    O client secret continua só no parâmetro do SSM.
 

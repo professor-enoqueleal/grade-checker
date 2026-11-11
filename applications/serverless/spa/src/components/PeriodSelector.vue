@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { RouteLocationRaw } from 'vue-router';
 import type { PeriodOption } from '@/api/types';
 import { endOfToday } from '@/utils/format';
@@ -22,6 +23,7 @@ const props = defineProps<{
   groupId?: string;
 }>();
 const emit = defineEmits<{ select: [key: string]; custom: [since: string, until: string] }>();
+const { t } = useI18n();
 
 const since = ref(props.customSince ?? '');
 const until = ref(props.customUntil ?? '');
@@ -38,7 +40,7 @@ function select(key: string) {
 </script>
 
 <template>
-  <div class="btn-group flex-wrap period-filter" :class="linkFor ? '' : 'mb-2'" role="group" aria-label="Period" :id="groupId">
+  <div class="btn-group flex-wrap period-filter" :class="linkFor ? '' : 'mb-2'" role="group" :aria-label="t('period.label')" :id="groupId">
     <template v-for="option in periods" :key="option.key">
       <template v-if="linkFor">
         <RouterLink v-if="option.enabled" :to="linkFor(option.key)" class="btn btn-sm"
@@ -55,17 +57,17 @@ function select(key: string) {
   <slot name="after-buttons"></slot>
 
   <details id="custom-period" :class="linkFor ? 'mt-3' : 'mb-3'" :open="open" @toggle="open = ($event.target as HTMLDetailsElement).open">
-    <summary class="small">Custom period</summary>
+    <summary class="small">{{ t('period.custom') }}</summary>
     <form class="d-inline-flex flex-wrap gap-2 align-items-end mt-2" @submit.prevent="emit('custom', since, until)">
       <div class="text-start">
-        <label for="since" class="form-label small mb-0">Since</label>
+        <label for="since" class="form-label small mb-0">{{ t('period.since') }}</label>
         <input type="datetime-local" class="form-control form-control-sm" id="since" v-model="since" :max="max">
       </div>
       <div class="text-start">
-        <label for="until" class="form-label small mb-0">Until</label>
+        <label for="until" class="form-label small mb-0">{{ t('period.until') }}</label>
         <input type="datetime-local" class="form-control form-control-sm" id="until" v-model="until" :max="max">
       </div>
-      <button type="submit" class="btn btn-sm btn-primary" id="applyCustomPeriod" :disabled="busy">Apply</button>
+      <button type="submit" class="btn btn-sm btn-primary" id="applyCustomPeriod" :disabled="busy">{{ t('period.apply') }}</button>
     </form>
   </details>
 </template>

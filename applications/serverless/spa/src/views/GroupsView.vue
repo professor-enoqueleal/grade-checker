@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { api } from '@/api';
-import { ApiError, errorMessage } from '@/api/client';
+import { errorMessage } from '@/api/client';
 import type { ArchivedGroup, GroupSummary } from '@/api/types';
 import AppBreadcrumb from '@/components/AppBreadcrumb.vue';
 import GroupFormModal from '@/components/GroupFormModal.vue';
@@ -13,10 +14,12 @@ import { gitHubLink, repositoryLabel } from '@/utils/format';
  * archived groups (Restore). /groups?add=1 (from the empty home) opens the form.
  */
 const route = useRoute();
+const { t } = useI18n();
 const groups = ref<GroupSummary[] | null>(null);
 const archived = ref<ArchivedGroup[]>([]);
-const pageError = ref('');
-const alert = ref('');
+// messages are computed on render, so they follow a change of language
+const pageError = ref<(() => string) | null>(null);
+const alert = ref<(() => string) | null>(null);
 const form = ref<InstanceType<typeof GroupFormModal> | null>(null);
 
 async function load() {
@@ -29,22 +32,22 @@ async function reload() {
   try {
     await load();
   } catch (e) {
-    alert.value = errorMessage(e, 'Could not load the groups. Please try again.');
+    alert.value = () => errorMessage(e, t('groups.loadError'));
   }
 }
 
 async function change(action: 'archive' | 'restore', id: number) {
-  alert.value = '';
+  alert.value = null;
   try {
     await (action === 'archive' ? api.archiveGroup(id) : api.restoreGroup(id));
     await reload();
   } catch (e) {
-    alert.value = errorMessage(e, `Could not ${action} the group. Please try again.`);
+    alert.value = () => errorMessage(e, t(action === 'archive' ? 'groups.archiveError' : 'groups.restoreError'));
   }
 }
 
 function archive(group: GroupSummary) {
-  if (!window.confirm(`Archive ${group.name}? It disappears from the home and the class grades; members and linked identities are kept.`)) return;
+  if (!window.confirm(t('groups.confirmArchive', { name: group.name }))) return;
   change('archive', group.id);
 }
 
@@ -52,8 +55,7 @@ onMounted(async () => {
   try {
     await load();
   } catch (e) {
-    pageError.value = e instanceof ApiError && e.status === 403 ? e.message
-      : errorMessage(e, 'Could not load the groups. Please try again.');
+    pageError.value = () => errorMessage(e, t('groups.loadError'));
     return;
   }
   if (route.query.add === '1') form.value?.open();
@@ -62,30 +64,30 @@ onMounted(async () => {
 
 <template>
   <main class="container">
-    <AppBreadcrumb :items="[{ label: 'Home', to: '/home' }, { label: 'Manage groups' }]" />
+    <AppBreadcrumb :items="[{ label: t('common.home'), to: '/home' }, { label: t('groups.title') }]" />
 
-    <div v-if="pageError" class="alert alert-danger" role="alert" id="groups-page-error">{{ pageError }}</div>
+    <div v-if="pageError" class="alert alert-danger" role="alert" id="groups-page-error">{{ pageError() }}</div>
 
     <template v-else>
       <div id="content">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-          <h4 class="mb-0">Manage groups</h4>
-          <a href="#" id="add-group-link" @click.prevent="form?.open()">Add a new group</a>
+          <h4 class="mb-0">{{ t('groups.title') }}</h4>
+          <a href="#" id="add-group-link" @click.prevent="form?.open()">{{ t('groups.addGroup') }}</a>
         </div>
 
-        <div v-if="alert" id="groups-alert" class="alert alert-danger" role="alert">{{ alert }}</div>
+        <div v-if="alert" id="groups-alert" class="alert alert-danger" role="alert">{{ alert() }}</div>
 
-        <div v-if="groups === null" class="gc-loader" role="status" aria-label="Loading"></div>
-        <p v-else-if="groups.length === 0" class="text-body-secondary" id="no-groups">No groups yet.</p>
+        <div v-if="groups === null" class="gc-loader" role="status" :aria-label="t('common.loading')"></div>
+        <p v-else-if="groups.length === 0" class="text-body-secondary" id="no-groups">{{ t('groups.empty') }}</p>
         <div v-else class="table-responsive">
           <table class="table table-sm table-hover align-middle" id="groups-table">
             <thead>
               <tr>
-                <th scope="col">Group</th>
-                <th scope="col">Name</th>
-                <th scope="col" class="d-none d-sm-table-cell">Repository</th>
-                <th scope="col" class="d-none d-sm-table-cell">Members</th>
-                <th scope="col">Actions</th>
+                <th scope="col">{{ t('groups.colGroup') }}</th>
+                <th scope="col">{{ t('common.name') }}</th>
+                <th scope="col" class="d-none d-sm-table-cell">{{ t('groups.colRepository') }}</th>
+                <th scope="col" class="d-none d-sm-table-cell">{{ t('groups.colMembers') }}</th>
+                <th scope="col">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -103,8 +105,8 @@ onMounted(async () => {
                 </td>
                 <td class="group-members d-none d-sm-table-cell">{{ group.members }}</td>
                 <td class="group-actions text-nowrap">
-                  <a href="#" class="edit-group-link" :data-group-id="group.id" @click.prevent="form?.open(group)">Edit</a>
-                  <a href="#" class="archive-group-link" :data-group-id="group.id" @click.prevent="archive(group)">Archive</a>
+                  <a href="#" class="edit-group-link" :data-group-id="group.id" @click.prevent="form?.open(group)">{{ t('common.edit') }}</a>
+                  <a href="#" class="archive-group-link" :data-group-id="group.id" @click.prevent="archive(group)">{{ t('groups.archive') }}</a>
                 </td>
               </tr>
             </tbody>
@@ -112,16 +114,16 @@ onMounted(async () => {
         </div>
 
         <template v-if="archived.length > 0">
-          <h5 class="mt-4" id="archived-groups-title">Archived groups</h5>
+          <h5 class="mt-4" id="archived-groups-title">{{ t('groups.archivedTitle') }}</h5>
           <div class="table-responsive">
             <table class="table table-sm align-middle text-body-secondary" id="archived-groups-table">
               <thead>
                 <tr>
-                  <th scope="col">Group</th>
-                  <th scope="col">Name</th>
-                  <th scope="col" class="d-none d-sm-table-cell">Repository</th>
-                  <th scope="col" class="d-none d-sm-table-cell">Archived on</th>
-                  <th scope="col">Actions</th>
+                  <th scope="col">{{ t('groups.colGroup') }}</th>
+                  <th scope="col">{{ t('common.name') }}</th>
+                  <th scope="col" class="d-none d-sm-table-cell">{{ t('groups.colRepository') }}</th>
+                  <th scope="col" class="d-none d-sm-table-cell">{{ t('groups.colArchivedOn') }}</th>
+                  <th scope="col">{{ t('common.actions') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -134,7 +136,7 @@ onMounted(async () => {
                   <td class="repository-cell d-none d-sm-table-cell" :title="group.repositoryUrl">{{ repositoryLabel(group.repositoryUrl) }}</td>
                   <td class="d-none d-sm-table-cell">{{ group.archivedOn }}</td>
                   <td class="group-actions text-nowrap">
-                    <a href="#" class="restore-group-link" :data-group-id="group.id" @click.prevent="change('restore', group.id)">Restore</a>
+                    <a href="#" class="restore-group-link" :data-group-id="group.id" @click.prevent="change('restore', group.id)">{{ t('groups.restore') }}</a>
                   </td>
                 </tr>
               </tbody>

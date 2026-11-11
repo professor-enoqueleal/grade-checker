@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { api } from '@/api';
 import { ApiError, errorMessage } from '@/api/client';
 import type { GroupGrades } from '@/api/types';
 import AppBreadcrumb from '@/components/AppBreadcrumb.vue';
 import { download, gradesCsv, type CsvGroup } from '@/utils/csv';
 import { formatGrade } from '@/utils/format';
-import { MILESTONE_KEYS } from '@/utils/grades';
+import { MILESTONE_KEYS, milestoneHeader } from '@/utils/grades';
 
 /**
  * Class grades (openspec capability class-gradebook), administrators only: every student of every group, grades of
@@ -23,7 +24,8 @@ interface GroupState {
   students: string[];
   status: 'pending' | 'done' | 'error';
   grades: GroupGrades | null;
-  error: string | null;
+  /** the failure of this group; the text is computed on render (it follows a change of language) */
+  failure: unknown;
 }
 
 interface Row {
@@ -32,8 +34,10 @@ interface Row {
   login: string;          // '' for a group without students
 }
 
-const forbidden = ref('');
-const loadError = ref('');
+const { t } = useI18n();
+// messages are computed on render, so they follow a change of language
+const forbidden = ref<(() => string) | null>(null);
+const loadError = ref<(() => string) | null>(null);
 const groups = ref<GroupState[] | null>(null);
 const filter = ref('');
 const sort = reactive<{ key: SortKey | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
@@ -47,7 +51,11 @@ const provisional = computed(() => {
 const pending = computed(() => groups.value?.some((g) => g.status === 'pending' && g.students.length > 0) ?? true);
 
 function header(key: string, i: number) {
-  return `M${i + 1}` + (provisional.value.has(key) ? ' (in progress)' : '');
+  return milestoneHeader(i, provisional.value.has(key));
+}
+
+function groupError(group: GroupState): string {
+  return errorMessage(group.failure, t('grades.groupError'));
 }
 
 function gradeOf(row: Row, key: GradeKey): number | null {
@@ -57,10 +65,10 @@ function gradeOf(row: Row, key: GradeKey): number | null {
 }
 
 function cellText(row: Row, key: GradeKey): string {
-  if (row.group.status === 'pending') return 'Loading…';
+  if (row.group.status === 'pending') return t('grades.loadingCell');
   if (row.group.status === 'error') return '—';
   const value = gradeOf(row, key);
-  return formatGrade(value) + (value !== null && key !== 'total' && provisional.value.has(key) ? ' (in progress)' : '');
+  return formatGrade(value) + (value !== null && key !== 'total' && provisional.value.has(key) ? t('common.inProgress') : '');
 }
 
 /** Number of the cell for sorting and tests ("" when missing), as the data-value of the JSP. */
@@ -71,9 +79,9 @@ function dataValue(row: Row, key: GradeKey): string {
 }
 
 function notes(row: Row): string {
-  if (row.group.status === 'error') return row.group.error ?? '';
+  if (row.group.status === 'error') return groupError(row.group);
   const excluded = row.group.grades?.excludedCommits ?? 0;
-  return excluded > 0 ? `${excluded} commits not counted in grades` : '';
+  return excluded > 0 ? t('grades.notCounted', { count: excluded }) : '';
 }
 
 const rows = computed<Row[]>(() => (groups.value ?? []).flatMap((g) => (g.students.length === 0
@@ -115,7 +123,7 @@ async function loadGroup(group: GroupState) {
     group.grades = await api.groupGrades(group.id);
     group.status = 'done';
   } catch (e) {
-    group.error = errorMessage(e, 'Could not calculate the grades of this group.');
+    group.failure = e;
     group.status = 'error';
   }
 }
@@ -126,7 +134,7 @@ function exportCsv() {
     students: g.students,
     grades: g.grades ? new Map(g.grades.students.map((s) => [s.login.toLowerCase(), s])) : null,
     provisionalMilestones: g.grades?.provisionalMilestones ?? [],
-    error: g.status === 'error' ? g.error : null,
+    error: g.status === 'error' ? groupError(g) : null,
   }));
   download('grades.csv', gradesCsv(data));
 }
@@ -134,9 +142,9 @@ function exportCsv() {
 onMounted(async () => {
   try {
     const book = await api.gradebook();
-    groups.value = book.groups.map((g) => ({ ...g, status: 'pending', grades: null, error: null }));
+    groups.value = book.groups.map((g) => ({ ...g, status: 'pending', grades: null, failure: null }));
   } catch (e) {
-    const message = errorMessage(e, 'Could not load the class grades. Please try again.');
+    const message = () => errorMessage(e, t('grades.loadError'));
     if (e instanceof ApiError && e.status === 403) forbidden.value = message;
     else loadError.value = message;
     return;
@@ -155,40 +163,39 @@ onMounted(async () => {
 
 <template>
   <main class="container">
-    <AppBreadcrumb :items="[{ label: 'Home', to: '/home' }, { label: 'Class grades' }]" />
+    <AppBreadcrumb :items="[{ label: t('common.home'), to: '/home' }, { label: t('grades.title') }]" />
 
-    <div v-if="forbidden" class="alert alert-danger" role="alert" id="grades-forbidden">{{ forbidden }}</div>
-    <div v-else-if="loadError" class="alert alert-danger" role="alert" id="grades-error">{{ loadError }}</div>
+    <div v-if="forbidden" class="alert alert-danger" role="alert" id="grades-forbidden">{{ forbidden() }}</div>
+    <div v-else-if="loadError" class="alert alert-danger" role="alert" id="grades-error">{{ loadError() }}</div>
 
     <template v-else>
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h4 class="mb-0">Class grades</h4>
+        <h4 class="mb-0">{{ t('grades.title') }}</h4>
         <div class="d-flex flex-wrap gap-2">
           <input v-model="filter" type="search" class="form-control form-control-sm w-auto grades-filter" id="grades-filter"
-                 placeholder="Filter by group or student" aria-label="Filter by group or student">
+                 :placeholder="t('grades.filter')" :aria-label="t('grades.filter')">
           <button type="button" class="btn btn-sm btn-outline-primary" id="export-csv" :disabled="pending"
-                  :title="pending ? 'Wait for every group to load' : 'Download the grades as CSV'" @click="exportCsv">Export CSV</button>
+                  :title="t(pending ? 'grades.exportWait' : 'grades.exportReady')" @click="exportCsv">{{ t('grades.export') }}</button>
         </div>
       </div>
 
       <p class="small text-body-secondary" id="grades-help">
-        Grades of every student of every group, calculated as in the group detail (period All).
-        Milestones not started show "—" and do not count in the total.
+        {{ t('grades.help') }}
       </p>
 
-      <div v-if="groups === null" class="gc-loader" role="status" aria-label="Loading"></div>
+      <div v-if="groups === null" class="gc-loader" role="status" :aria-label="t('common.loading')"></div>
 
       <div v-else class="table-responsive">
         <table class="table table-sm table-hover align-middle" id="grades-table">
           <thead>
             <tr>
-              <th scope="col"><button type="button" class="sort-button" data-sort="group" :data-direction="sort.key === 'group' ? sort.direction : undefined" @click="sortBy('group')">Group</button></th>
-              <th scope="col"><button type="button" class="sort-button" data-sort="login" :data-direction="sort.key === 'login' ? sort.direction : undefined" @click="sortBy('login')">Student</button></th>
+              <th scope="col"><button type="button" class="sort-button" data-sort="group" :data-direction="sort.key === 'group' ? sort.direction : undefined" @click="sortBy('group')">{{ t('grades.colGroup') }}</button></th>
+              <th scope="col"><button type="button" class="sort-button" data-sort="login" :data-direction="sort.key === 'login' ? sort.direction : undefined" @click="sortBy('login')">{{ t('grades.colStudent') }}</button></th>
               <th v-for="(key, i) in MILESTONE_KEYS" :key="key" scope="col">
                 <button type="button" class="sort-button" :data-sort="key" :id="`header-${key}`" :data-direction="sort.key === key ? sort.direction : undefined" @click="sortBy(key)">{{ header(key, i) }}</button>
               </th>
-              <th scope="col"><button type="button" class="sort-button" data-sort="total" :data-direction="sort.key === 'total' ? sort.direction : undefined" @click="sortBy('total')">Total (0–9)</button></th>
-              <th scope="col">Notes</th>
+              <th scope="col"><button type="button" class="sort-button" data-sort="total" :data-direction="sort.key === 'total' ? sort.direction : undefined" @click="sortBy('total')">{{ t('grading.totalColumn') }}</button></th>
+              <th scope="col">{{ t('grades.colNotes') }}</th>
             </tr>
           </thead>
           <tbody id="grades-tbody">
@@ -196,7 +203,7 @@ onMounted(async () => {
                 :class="{ pending: row.group.status === 'pending' && row.login, 'group-error': row.group.status === 'error', 'empty-group': !row.login }"
                 :data-group-id="row.group.id" :data-group-name="row.group.name" :data-login="row.login">
               <td><RouterLink :to="{ path: '/detail', query: { id: String(row.group.id) } }">{{ row.group.name }}</RouterLink></td>
-              <td v-if="!row.login" colspan="6" class="text-body-secondary">No students registered</td>
+              <td v-if="!row.login" colspan="6" class="text-body-secondary">{{ t('grades.noStudents') }}</td>
               <template v-else>
                 <td class="student-login">{{ row.login }}</td>
                 <td v-for="key in MILESTONE_KEYS" :key="key" class="grade-cell" :data-key="key" :data-value="dataValue(row, key)">{{ cellText(row, key) }}</td>
@@ -208,7 +215,7 @@ onMounted(async () => {
         </table>
       </div>
 
-      <p v-if="groups && groups.length === 0" class="text-center text-body-secondary" id="no-groups">No groups to show.</p>
+      <p v-if="groups && groups.length === 0" class="text-center text-body-secondary" id="no-groups">{{ t('grades.empty') }}</p>
     </template>
   </main>
 </template>

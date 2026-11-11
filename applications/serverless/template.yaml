@@ -25,6 +25,18 @@ Parameters:
     Type: Number
     Default: 600
     Description: TTL of the GitHub cache (seconds)
+  SessionIdleMinutes:
+    Type: Number
+    Default: 30
+    MinValue: 5
+    MaxValue: 480
+    Description: The session ends after this many minutes without using the site
+  SessionMaxHours:
+    Type: Number
+    Default: 8
+    MinValue: 1
+    MaxValue: 8
+    Description: The session ends this many hours after the sign-in, even with use (at most 8, the lifetime of the GitHub App token)
   DashboardMaxCommits:
     Type: Number
     Default: 1000
@@ -114,6 +126,8 @@ Globals:
         GCACHE_TTL_SECONDS: !Ref CacheTtlSeconds
         GCACHE_MAX_SIZE: '10000'
         GH_DASHBOARD_MAX_COMMITS: !Ref DashboardMaxCommits
+        SESSION_IDLE_MINUTES: !Ref SessionIdleMinutes
+        SESSION_MAX_HOURS: !Ref SessionMaxHours
         JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1
 
 Resources:

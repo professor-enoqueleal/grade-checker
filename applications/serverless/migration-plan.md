@@ -308,6 +308,7 @@ Um domínio próprio é opcional: a hosted zone do Route 53 custa US$ 0,50 por m
   - Workflows `serverless-ci.yml`, `serverless-release.yml` (tag `serverless-vX.Y.Z`) e `serverless-deploy.yml` (OIDC, sem chave AWS no repositório).
   - `serverless-v1.0.0` publicada pelo GitHub Actions; E2E de admin contra a AWS: 85 passaram, 4 pulados.
   - A stack fica no ar por decisão de operação: o custo serverless sem uso é próximo de zero.
+- **Domínio próprio (2026-11-10):** `https://gc.enoque.dev` (DNS no Cloudflare, certificado do ACM, `serverless-v1.1.0`; change `serverless-custom-domain`, arquivada). O domínio `*.cloudfront.net` continua respondendo.
 - **Próximo passo:** apagar a stack da EC2 quando a versão serverless substituir a Jetty (seção 9, fase 5).
 - **Specs:** o OpenSpec da versão serverless fica na raiz do repositório (`openspec/specs/serverless-*`).
 

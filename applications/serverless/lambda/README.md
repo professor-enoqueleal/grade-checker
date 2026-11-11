@@ -156,8 +156,8 @@ src/main/resources/      milestones.properties, grading.properties, seed-groups.
   - Os erros saem como `{ "error", "message" }`, com as mesmas mensagens da versão Jetty.
 - **Montagem das dependências:** é manual, no `AppContext` (composition root), criado no init estático do `ApplicationHandler`, para entrar no snapshot do SnapStart. Não há container de CDI.
 - **Sessão:**
-  - fica no item `SESSION#<id>` da tabela efêmera, com o login, o token do GitHub e a expiração de 8 horas;
-  - o navegador só recebe o cookie `__Host-gc_session` (HttpOnly, Secure, SameSite=Lax);
+  - fica no item `SESSION#<id>` da tabela efêmera, com o login, o token do GitHub e dois prazos: `expiresAt` (inatividade, 30 minutos sem uso por padrão, estendido a cada chamada, gravado no máximo uma vez por minuto) e `maxExpiresAt` (8 horas depois do login, por padrão; o token do GitHub App vence em 8 horas);
+  - o navegador só recebe o cookie `__Host-gc_session` (HttpOnly, Secure, SameSite=Lax), com `Max-Age` igual ao limite absoluto; a inatividade é conferida no servidor;
   - no login com o GitHub, o `state` fica no DynamoDB e num cookie de 10 minutos, e só pode ser usado uma vez.
 - **Dados na tabela de dados:**
   - **grupos:** `GROUPS / GROUP#…`;
@@ -199,5 +199,6 @@ A Lambda entrega à library:
 | `GRADE_CHECKER_ADMINS` | logins de administradores, separados por vírgula |
 | `GCACHE_ENABLED`, `GCACHE_TTL_SECONDS`, `GCACHE_MAX_SIZE` | cache (padrão do TTL: 600 s) |
 | `GH_DASHBOARD_MAX_COMMITS` | teto de commits por relatório |
+| `SESSION_IDLE_MINUTES`, `SESSION_MAX_HOURS` | a sessão cai depois de N minutos sem uso (padrão 30, de 5 a 480) e, mesmo com uso, N horas depois do login (padrão 8, no máximo 8) |
 
-A publicação na AWS (CloudFront, bucket da SPA, GitHub App de produção, parâmetro do SSM) fica para a change de publicação.
+A publicação na AWS (CloudFront, bucket da SPA, GitHub App de produção, parâmetro do SSM) está em "3. Publicar na AWS", no README da serverless.

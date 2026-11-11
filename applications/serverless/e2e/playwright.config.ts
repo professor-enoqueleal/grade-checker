@@ -27,6 +27,9 @@ export default defineConfig({
     baseURL,
     // system Chrome by default (no browser download); override with E2E_BROWSER_CHANNEL=chromium
     channel: process.env.E2E_BROWSER_CHANNEL ?? 'chrome',
+    // browser in English: the SPA opens in English (capability serverless-i18n) and the texts the tests check are the
+    // English ones; tests/**/i18n.spec.ts set other languages
+    locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',

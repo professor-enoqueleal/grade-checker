@@ -1,3 +1,4 @@
+import { apiErrorText } from '@/i18n/apiErrors';
 import type { ApiErrorBody } from './types';
 
 /** Error of an /api call: HTTP status plus the message of the backend ({ error, message }). */
@@ -65,7 +66,7 @@ export async function request<T>(method: Method, path: string, options: { query?
   return body as T;
 }
 
-/** Message of an error for the screen, or the fallback when the backend sent none. */
+/** Message of an error for the screen, in the user's language, or the fallback when the backend sent none. */
 export function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError && error.message ? error.message : fallback;
+  return error instanceof ApiError && error.message ? apiErrorText(error.code, error.message) : fallback;
 }

@@ -86,9 +86,10 @@ Os dados do mock (4 grupos, um deles arquivado, com membros, uma identidade sem 
 ```
 src/
   api/          contrato (types.ts), cliente HTTP (client.ts) e uma função por endpoint (index.ts)
-  composables/  sessão (/api/me), configuração (/api/config), tema da tela de login, modal do Bootstrap
-  components/   navbar, breadcrumb, filtro de período, gráficos, cards, tabela do dashboard,
-                explicação da nota (pt-BR), modais de grupo, membro e associação de identidade
+  composables/  sessão (/api/me), configuração (/api/config), idioma, tema da tela de login, modal do Bootstrap
+  components/   navbar, breadcrumb, seletor de idioma, filtro de período, gráficos, cards, tabela do dashboard,
+                explicação da nota, modais de grupo, membro e associação de identidade
+  i18n/         dicionários pt-BR.ts e en.ts, detecção do idioma (locale.ts), tradução dos erros da API
   views/        login, home, detalhe do grupo, histórico de commits, notas da turma, grupos, membros, 404
   router/       rotas (mesmas URLs das JSPs), proteção de rotas e título das páginas
   utils/        formatação, colunas de nota, CSV das notas, configuração do Chart.js
@@ -104,7 +105,25 @@ tests/          testes unitários (Vitest)
 - **Bootstrap JS** é carregado uma única vez (`main.ts`). Carregar duas vezes quebra o menu do celular, como aconteceu nas JSPs.
 - **Formatação no backend:** datas, períodos e a explicação da nota chegam formatados pelo backend, no fuso de `milestones.properties`, como nas JSPs. A SPA só formata notas e porcentagens.
 - **CSV das notas:** gerado no navegador (`utils/csv.ts`) a partir das notas já carregadas, com o mesmo formato do antigo `/grades.csv` (BOM, `;`, vírgula decimal, CRLF e proteção contra fórmulas). Assim, nenhuma requisição chega perto do limite de 30 s do API Gateway.
+- **Idiomas:** ver a seção abaixo.
 - **Tema:** o seletor Light/Dark/Auto continua só na tela de login, e as outras telas ficam claras, como antes, porque as cores dos gráficos são para fundo claro.
+
+## Idiomas
+
+A SPA fala português do Brasil (padrão) e inglês, com o `vue-i18n` (capability `serverless-i18n`).
+
+- **Idioma inicial:** a escolha salva no seletor (`localStorage`, chave `locale`); senão, o primeiro idioma do navegador que for português ou inglês (`navigator.languages`); senão, português. O idioma detectado não é gravado.
+- **Seletor:** "Português" / "English", na navbar e na tela de login. A troca vale na hora, sem recarregar, e atualiza `<html lang>` e o título da aba.
+- **O que não muda com o idioma:** datas, nomes dos marcos e textos de período (vêm formatados do backend) e o CSV das notas.
+- **Erros da API:** traduzidos pelo código ou, quando o código cobre vários casos, pela mensagem em inglês do backend (`src/i18n/apiErrors.ts`). Erro desconhecido mostra a mensagem do backend.
+
+### Acrescentar um texto
+
+1. Crie a chave em `src/i18n/pt-BR.ts` e a mesma chave em `src/i18n/en.ts`. O `en.ts` tem o tipo do `pt-BR.ts`, então `npm run typecheck` falha se faltar uma das duas.
+2. Use `t('chave')` no componente (`const { t } = useI18n()`), ou o `t` de `@/i18n` fora de componentes.
+3. Sintaxe do vue-i18n: `{nome}` é parâmetro e `a | b` é plural. Os caracteres `{ } @ $ |` literais vão como `{'@'}`.
+4. Uma mensagem guardada para mostrar depois (erro, aviso) deve ser calculada na renderização (por exemplo, uma função `() => t(...)`), para acompanhar a troca de idioma.
+5. Os textos em inglês são os que as specs e os testes citam: mude-os só junto com eles. Os testes (Vitest e E2E) rodam em inglês; os de idioma ficam em `tests/i18n.spec.ts` e `e2e/tests/**/i18n.spec.ts`.
 
 ## Contrato da API
 

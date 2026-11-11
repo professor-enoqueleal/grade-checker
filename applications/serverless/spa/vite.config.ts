@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       include: ['tests/**/*.spec.ts'],
+      setupFiles: ['tests/setup.ts'],
     },
   };
 });

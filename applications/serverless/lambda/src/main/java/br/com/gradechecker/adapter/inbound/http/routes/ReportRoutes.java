@@ -15,10 +15,14 @@ import br.com.gradechecker.core.grading.GradingConfig;
 import br.com.gradechecker.core.grading.GradingExplanation;
 import br.com.gradechecker.core.history.CommitActivity;
 import br.com.gradechecker.core.history.HistoryCommit;
+import br.com.gradechecker.core.period.Milestones;
 import br.com.gradechecker.core.period.PeriodResolver;
 import br.com.gradechecker.core.period.PeriodResolver.ResolvedPeriod;
 import br.com.gradechecker.core.view.CommitRow;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,9 +57,34 @@ public final class ReportRoutes {
     private List<Object> periodOptions(String selected) {
         List<Object> options = new ArrayList<>();
         for (PeriodResolver.PeriodOption o : periods.options(selected)) {
-            options.add(Maps.of("key", o.getKey(), "label", o.getLabel(), "enabled", o.isEnabled(), "hint", o.getHint()));
+            Milestones.Milestone m = milestone(o.getKey());
+            boolean dated = m != null && m.isConfigured();
+            options.add(Maps.of("key", o.getKey(), "label", o.getLabel(), "enabled", o.isEnabled(), "hint", o.getHint(),
+                    "start", dated ? m.getStartDate().toString() : null, "end", dated ? m.getEndDate().toString() : null));
         }
         return options;
+    }
+
+    private Milestones.Milestone milestone(String key) {
+        for (Milestones.Milestone m : periods.getMilestones().getAll()) {
+            if (m.getKey().equals(key)) return m;
+        }
+        return null;
+    }
+
+    /** Start of the period as local date-time in the milestone zone (yyyy-MM-ddTHH:mm); null for All. The SPA formats it. */
+    private String local(Instant instant) {
+        return instant == null ? null : periods.toInputValue(instant);
+    }
+
+    /** Commit date (ISO from GitHub) as local date-time in the milestone zone; null when unparseable. */
+    private String localDateTime(String iso) {
+        if (iso == null || iso.trim().isEmpty()) return null;
+        try {
+            return periods.toInputValue(OffsetDateTime.parse(iso).toInstant());
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     // ------------------------------------------------------------------------------------------- config
@@ -97,6 +126,8 @@ public final class ReportRoutes {
         return Response.ok(Maps.of(
                 "period", report.getPeriod().getKey(),
                 "periodText", report.getPeriodText(),
+                "since", local(report.getPeriod().getSince()),
+                "until", local(report.getPeriod().getUntil()),
                 "totalCommits", report.getTotalCommits(),
                 "truncated", report.isTruncated(),
                 "grading", grading(grades),
@@ -139,6 +170,8 @@ public final class ReportRoutes {
                 "author", h.getAuthor(),
                 "period", period.getKey(),
                 "periodText", periods.describe(period),
+                "since", local(period.getSince()),
+                "until", local(period.getUntil()),
                 "periodWarning", h.getPeriodWarning(),
                 "customSince", periods.toInputValue(period.getSince()),
                 "customUntil", periods.toInputValue(period.getUntil()),
@@ -157,13 +190,15 @@ public final class ReportRoutes {
         String identity = attributed.getSource() == AttributionSource.ACCOUNT ? null : attributed.getIdentity();
         CommitRow row = new CommitRow(date, commit.getMessage() == null ? "" : commit.getMessage(), commit.getOid(), url, identity, manual);
         return Maps.of("day", row.getDay(), "time", row.getTime(), "message", row.getMessage(), "sha", row.getSha(),
-                "url", row.getUrl(), "identity", row.getIdentity(), "manual", manual);
+                "url", row.getUrl(), "identity", row.getIdentity(), "manual", manual,
+                "date", localDateTime(commit.getCommittedDate()));
     }
 
     private static Map<String, Object> activity(CommitActivity a) {
         List<Object> series = new ArrayList<>();
         for (CommitActivity.Series s : a.getSeries()) series.add(Maps.of("key", s.getKey(), "label", s.getLabel(), "counts", s.getCounts()));
         return Maps.of("granularity", a.getGranularity(), "title", a.getTitle(), "summary", a.getSummary(),
-                "ariaLabel", a.getAriaLabel(), "labels", a.getLabels(), "tooltips", a.getTooltips(), "series", series);
+                "ariaLabel", a.getAriaLabel(), "labels", a.getLabels(), "tooltips", a.getTooltips(), "series", series,
+                "starts", a.getStarts(), "total", a.getTotal(), "activeDays", a.getActiveDays());
     }
 }

@@ -20,7 +20,7 @@ test.describe('Sign in with personal access token', () => {
 
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(Object.keys(body).sort()).toEqual(['isAdmin', 'login']);             // the token never goes back
+    expect(Object.keys(body).sort()).toEqual(['avatarUrl', 'isAdmin', 'login']);           // the token never goes back
     const cookie = response.headers()['set-cookie'];
     expect(cookie).toMatch(/^__Host-gc_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=28800; HttpOnly; Secure; SameSite=Lax/);
     expect((await fresh.get('/api/me')).status()).toBe(200);

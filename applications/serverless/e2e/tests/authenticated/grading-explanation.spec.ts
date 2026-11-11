@@ -46,12 +46,11 @@ test.describe('Grading explanation', () => {
     const last = await page.locator('main > *').last().getAttribute('id');
     expect(last).toBe('grading-explanation');
 
-    // milestones with their dates (dd/MM/yyyy)
+    // milestones with their dates (dd/MM/yyyy); the name is "Marco N" in Portuguese (milestone.N.label is not shown)
     for (const n of [1, 2, 3]) {
-      const label = ms[`milestone.${n}.label`];
-      if (!label) continue;
+      if (!ms[`milestone.${n}.start`]) continue;
       await expect(page.locator('#grading-explanation-milestones')).toContainText(
-        `${label}: de ${ptDate(ms[`milestone.${n}.start`])} a ${ptDate(ms[`milestone.${n}.end`])}`);
+        `Marco ${n}: de ${ptDate(ms[`milestone.${n}.start`])} a ${ptDate(ms[`milestone.${n}.end`])}`);
     }
 
     // the three factors with the normalized weights, the cap per commit and the minimum lines of a relevant commit

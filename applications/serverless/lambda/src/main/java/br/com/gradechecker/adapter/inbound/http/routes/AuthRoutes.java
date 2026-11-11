@@ -60,7 +60,7 @@ public final class AuthRoutes {
     }
 
     static Object me(String login) {
-        return Maps.of("login", login, "isAdmin", AdminConfig.isAdmin(login));
+        return Maps.of("login", login, "isAdmin", AdminConfig.isAdmin(login), "avatarUrl", "https://github.com/" + login + ".png?size=64");
     }
 
     private Response me(Call call) {

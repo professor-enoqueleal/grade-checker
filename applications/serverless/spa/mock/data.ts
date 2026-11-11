@@ -43,10 +43,23 @@ export function periods(): PeriodOption[] {
   const now = today();
   return [
     ...MILESTONES.map((m) => (m.start > now
-      ? { key: m.key, label: m.label, enabled: false, hint: `Starts on ${m.startText}` }
-      : { key: m.key, label: m.label, enabled: true, hint: `${m.startText} – ${m.endText}` })),
-    { key: 'all', label: 'All', enabled: true, hint: 'All history' },
+      ? { key: m.key, label: m.label, enabled: false, hint: `Starts on ${m.startText}`, start: m.start, end: m.end }
+      : { key: m.key, label: m.label, enabled: true, hint: `${m.startText} – ${m.endText}`, start: m.start, end: m.end })),
+    { key: 'all', label: 'All', enabled: true, hint: 'All history', start: null, end: null },
   ];
+}
+
+/** Raw start and end of a period (local time of the milestone zone), as the API sends them; since is null for All. */
+export function bounds(period: string, since?: string | null, until?: string | null): { since: string | null; until: string | null } {
+  if (period === 'all') return { since: null, until: null };
+  const m = MILESTONES.find((x) => x.key === period);
+  if (m) return { since: `${m.start}T00:00`, until: `${m.end}T23:59` };
+  return { since: since ?? null, until: until ?? null };
+}
+
+/** Local date and time in America/Sao_Paulo (yyyy-MM-ddTHH:mm). */
+function local(date: Date): string {
+  return date.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo', hour12: false }).slice(0, 16).replace(' ', 'T');
 }
 
 const inProgress = (key: string) => {
@@ -163,7 +176,7 @@ export function cards(g: MockGroup): GroupCard[] {
 }
 
 /** Local avatar (SVG with the initials): the mock never calls github.com. */
-function avatar(login: string): string {
+export function avatar(login: string): string {
   const hue = Math.abs(hash(login)) % 360;
   const initials = login.split('-').map((p) => p[0] ?? '').join('').slice(0, 2).toUpperCase();
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${hue},45%,80%)"/>`
@@ -299,7 +312,7 @@ export function report(g: MockGroup, period: string, since?: string, until?: str
     : m ? `${m.startText} – ${m.endText}`
       : `${(since ?? '').replace('T', ' ')} – ${(until ?? '').replace('T', ' ')}`;
   return {
-    period, periodText,
+    period, periodText, ...bounds(period, since, until),
     totalCommits: rows.reduce((s, r) => s + r.commits, 0),
     truncated: false,
     grading,
@@ -345,6 +358,7 @@ export function commits(g: MockGroup, author: string, period: string): { rows: C
           url: `${repositoryUrl(g)}/commit/${sha}`,
           identity: a.login === null ? a.email : null,
           manual: a.login === null,
+          date: local(t),
         });
       }
     });
@@ -366,8 +380,10 @@ function activity(dates: Date[]): CommitActivity | null {
   const weeks = Math.round((last.getTime() - first.getTime()) / (7 * 86400000)) + 1;
   const labels: string[] = [];
   const tooltips: string[] = [];
+  const starts: string[] = [];
   for (let w = 0; w < weeks; w++) {
     const d = new Date(first.getTime() + w * 7 * 86400000);
+    starts.push(d.toISOString().slice(0, 10));
     labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
     tooltips.push('Week of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }));
   }
@@ -385,6 +401,7 @@ function activity(dates: Date[]): CommitActivity | null {
     summary: `${dates.length} commits on ${activeDays} active days`,
     ariaLabel: `Commits per week: ${dates.length} commits on ${activeDays} active days`,
     labels, tooltips, series: used,
+    starts, total: dates.length, activeDays,
   };
 }
 

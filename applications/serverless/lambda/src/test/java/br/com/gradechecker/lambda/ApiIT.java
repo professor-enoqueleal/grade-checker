@@ -170,8 +170,10 @@ public class ApiIT {
         assertFalse("the token never goes to the browser", ok.getBody().contains("good-admin"));
         String session = cookieValue(ok.getCookies(), AuthRoutes.SESSION_COOKIE);
 
-        assertEquals("{\"login\":\"professor\",\"isAdmin\":true}", call("GET", "/api/me", null, session).getBody());
-        assertEquals("{\"login\":\"ana\",\"isAdmin\":false}", call("GET", "/api/me", null, signIn("good-student")).getBody());
+        assertEquals("{\"login\":\"professor\",\"isAdmin\":true,\"avatarUrl\":\"https://github.com/professor.png?size=64\"}",
+                call("GET", "/api/me", null, session).getBody());
+        assertEquals("{\"login\":\"ana\",\"isAdmin\":false,\"avatarUrl\":\"https://github.com/ana.png?size=64\"}",
+                call("GET", "/api/me", null, signIn("good-student")).getBody());
 
         assertEquals(200, call("POST", "/api/auth/logout", null, session).getStatusCode());
         assertEquals(401, call("GET", "/api/me", null, session).getStatusCode());
@@ -202,7 +204,7 @@ public class ApiIT {
         APIGatewayV2HTTPResponse signedIn = api.handleRequest(callback, null);
         assertEquals("/home", signedIn.getHeaders().get("Location"));
         String session = cookieValue(signedIn.getCookies(), AuthRoutes.SESSION_COOKIE);
-        assertEquals("{\"login\":\"professor\",\"isAdmin\":true}", call("GET", "/api/me", null, session).getBody());
+        assertEquals("professor", json(call("GET", "/api/me", null, session)).get("login").getAsString());
         assertEquals("/login?error=github_not_verified", api.handleRequest(callback, null).getHeaders().get("Location"));
 
         // no code (access denied on GitHub)
@@ -355,9 +357,20 @@ public class ApiIT {
         JsonObject anaRow = m2.getAsJsonArray("rows").get(0).getAsJsonObject();
         assertEquals("ana", anaRow.get("author").getAsString());
         assertTrue(anaRow.has("gradeDetails"));
+        assertEquals("2026-09-18T00:00", m2.get("since").getAsString());     // local time of the milestone zone, formatted by the SPA
+        assertTrue(m2.get("until").getAsString().startsWith("2026-10-29T"));
+
+        // periods with the raw dates of the milestones
+        JsonObject config = json(call("GET", "/api/config", null, admin));
+        JsonObject m3Option = config.getAsJsonArray("periods").get(2).getAsJsonObject();
+        assertEquals("m3", m3Option.get("key").getAsString());
+        assertEquals("2026-10-30", m3Option.get("start").getAsString());
+        assertEquals("2026-11-19", m3Option.get("end").getAsString());
+        assertTrue(config.getAsJsonArray("periods").get(3).getAsJsonObject().get("start").isJsonNull());
 
         // All: M1, M2, M3 and total; the same numbers in /api/grades/{id}
         JsonObject all = json(call("GET", "/api/groups/" + id + "/contributions", Map.of("period", "all"), null, admin));
+        assertTrue(all.get("since").isJsonNull());
         assertEquals(List.of("m3").toString(), all.getAsJsonObject("grading").getAsJsonArray("provisionalMilestones").toString().replace("\"", ""));
         JsonObject grades = json(call("GET", "/api/grades/" + id, null, admin));
         for (var row : all.getAsJsonArray("rows")) {
@@ -384,6 +397,12 @@ public class ApiIT {
         assertEquals("a2", history.getAsJsonArray("commits").get(0).getAsJsonObject().get("sha").getAsString());
         assertFalse(history.get("activity").isJsonNull());
         assertTrue(history.getAsJsonObject("activity").has("ariaLabel"));
+        assertEquals("2026-10-02T09:00", history.getAsJsonArray("commits").get(0).getAsJsonObject().get("date").getAsString());
+        assertTrue(history.get("since").isJsonNull());
+        JsonObject activity = history.getAsJsonObject("activity");
+        assertEquals(activity.getAsJsonArray("labels").size(), activity.getAsJsonArray("starts").size());
+        assertEquals(2, activity.get("total").getAsInt());
+        assertEquals(2, activity.get("activeDays").getAsInt());
 
         // a student sees the report but not the class grades
         String student = signIn("good-student");

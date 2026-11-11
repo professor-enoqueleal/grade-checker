@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import type { RouteLocationRaw } from 'vue-router';
 import type { PeriodOption } from '@/api/types';
 import { endOfToday } from '@/utils/format';
+import { periodHint, periodLabel } from '@/i18n/periods';
 
 /**
  * Period filter (openspec capability milestone-period-filter): Milestone 1/2/3 and All, plus a Custom period.
@@ -45,13 +46,13 @@ function select(key: string) {
       <template v-if="linkFor">
         <RouterLink v-if="option.enabled" :to="linkFor(option.key)" class="btn btn-sm"
                     :class="option.key === selected ? 'btn-primary active' : 'btn-outline-primary'"
-                    :title="option.hint" :aria-current="option.key === selected ? 'true' : undefined">{{ option.label }}</RouterLink>
-        <span v-else class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true" :title="option.hint">{{ option.label }}</span>
+                    :title="periodHint(option)" :aria-current="option.key === selected ? 'true' : undefined">{{ periodLabel(option) }}</RouterLink>
+        <span v-else class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true" :title="periodHint(option)">{{ periodLabel(option) }}</span>
       </template>
       <button v-else type="button" class="btn btn-sm period-button"
               :class="option.key === selected ? 'btn-primary active' : 'btn-outline-primary'"
-              :data-period="option.key" :title="option.hint" :disabled="!option.enabled || busy"
-              @click="select(option.key)">{{ option.label }}</button>
+              :data-period="option.key" :title="periodHint(option)" :disabled="!option.enabled || busy"
+              @click="select(option.key)">{{ periodLabel(option) }}</button>
     </template>
   </div>
   <slot name="after-buttons"></slot>

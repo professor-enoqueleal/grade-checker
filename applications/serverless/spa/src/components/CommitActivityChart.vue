@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { CommitActivity } from '@/api/types';
+import { activityTexts } from '@/i18n/periods';
 import { CHART_COLORS, CHART_SURFACE, Chart, columnTopRadius, GRID_COLOR, TICK_COLOR } from '@/utils/charts';
 
 /**
  * Commit frequency (openspec capability serverless-commit-history-page): same commits as the table, per day or per week,
- * one series per milestone (blue ramp) and "outside the milestones" (gray). The backend sends the columns.
+ * one series per milestone (blue ramp) and "outside the milestones" (gray). The backend sends the columns; the texts
+ * (title, axis, tooltips) follow the language.
  */
 const props = defineProps<{ activity: CommitActivity }>();
 const canvas = ref<HTMLCanvasElement | null>(null);
@@ -14,18 +16,24 @@ let chart: Chart<'bar', number[], string> | null = null;
 
 const { t, locale } = useI18n();
 const plural = (n: number) => t('commits.count', { n }, n);
+// recomputed when the language changes (the global t reads the current locale)
+const texts = computed(() => {
+  void locale.value;
+  return activityTexts(props.activity);
+});
 
 function draw() {
   chart?.destroy();
   if (!canvas.value) return;
-  const { labels, series, tooltips } = props.activity;
+  const { series } = props.activity;
+  const { labels, tooltips, seriesLabel } = texts.value;
   chart = new Chart<'bar', number[], string>(canvas.value, {
     type: 'bar',
     data: {
       labels,
       datasets: series.map((s) => ({
         key: s.key,                      // milestone of the series (m1, m2, m3, outside), read by the E2E tests
-        label: s.label,
+        label: seriesLabel(s),
         data: s.counts,
         backgroundColor: CHART_COLORS[s.key] ?? CHART_COLORS.outside,
         hoverBackgroundColor: CHART_COLORS[s.key] ?? CHART_COLORS.outside,
@@ -70,10 +78,10 @@ onBeforeUnmount(() => { chart?.destroy(); chart = null; });
 
 <template>
   <section class="mb-4" id="commit-activity" aria-labelledby="commit-activity-title">
-    <h6 class="mb-1" id="commit-activity-title">{{ activity.title }}</h6>
-    <p class="small text-body-secondary mb-2" id="commit-activity-summary">{{ activity.summary }}</p>
+    <h6 class="mb-1" id="commit-activity-title">{{ texts.title }}</h6>
+    <p class="small text-body-secondary mb-2" id="commit-activity-summary">{{ texts.summary }}</p>
     <div class="commit-activity-box">
-      <canvas ref="canvas" id="commit-activity-chart" role="img" :aria-label="activity.ariaLabel"></canvas>
+      <canvas ref="canvas" id="commit-activity-chart" role="img" :aria-label="texts.ariaLabel"></canvas>
     </div>
   </section>
 </template>

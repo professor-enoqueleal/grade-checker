@@ -15,25 +15,28 @@ test.describe('Language', () => {
       await expect(page.getByRole('heading', { name: 'Entrar no Grade Checker' })).toBeVisible();
       await expect(page.getByRole('link', { name: 'Continuar com o GitHub' })).toBeVisible();
       await expect(page).toHaveTitle('Entrar · Grade Checker');
-      await expect(page.locator('#language-selector')).toHaveValue('pt-BR');
-      await expect(page.locator('#language-selector option:checked')).toHaveText('Português');
+      await expect(page.locator('#language-pt-BR')).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator('#language-pt-BR')).toHaveAccessibleName('Português');
+      await expect(page.locator('#language-en')).toHaveAttribute('aria-pressed', 'false');
+      await expect(page.locator('#language-en')).toHaveAccessibleName('English');
+      await expect(page.locator('#language-selector svg')).toHaveCount(2);   // the two flags, drawn by the SPA
     });
 
     test('English in the selector: at once, kept after a reload, Portuguese again without losing the form', async ({ page }) => {
       await page.goto('/login');
-      await page.locator('#language-selector').selectOption('en');
+      await page.locator('#language-en').click();
       await expect(page.getByRole('heading', { name: 'Sign in to Grade Checker' })).toBeVisible();
       await expect(page).toHaveTitle('Sign in · Grade Checker');
       await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 
       await page.reload();
       await expect(page.getByRole('heading', { name: 'Sign in to Grade Checker' })).toBeVisible();
-      await expect(page.locator('#language-selector')).toHaveValue('en');
+      await expect(page.locator('#language-en')).toHaveAttribute('aria-pressed', 'true');
 
       // what was typed stays
       await page.getByRole('button', { name: /personal access token/i }).click();
       await page.locator('#access-token').fill('ghp_typed');
-      await page.locator('#language-selector').selectOption('pt-BR');
+      await page.locator('#language-pt-BR').click();
       await expect(page.getByRole('heading', { name: 'Entrar no Grade Checker' })).toBeVisible();
       await expect(page.locator('#access-token')).toHaveValue('ghp_typed');
       await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR');
@@ -54,7 +57,7 @@ test.describe('Language', () => {
       await page.goto('/login');
       await expect(page.locator('html')).toHaveAttribute('lang', 'en');
       await expect(page.getByRole('heading', { name: 'Sign in to Grade Checker' })).toBeVisible();
-      await expect(page.locator('#language-selector')).toHaveValue('en');
+      await expect(page.locator('#language-en')).toHaveAttribute('aria-pressed', 'true');
     });
 
     test('the saved choice wins over the browser', async ({ page }) => {

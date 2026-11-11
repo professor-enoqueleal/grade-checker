@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ajax, githubToken, skipWithoutToken } from '../../support/env';
+import { openUserMenu } from '../../support/navbar';
 
 /** Capabilities navigation-bar (Sign out) and session-auth (logout). Uses its own session, never the shared one. */
 test.describe('Sign out', () => {
@@ -29,6 +30,7 @@ test.describe('Sign out', () => {
     test.skip(!githubToken, skipWithoutToken);
     await signIn(page);
 
+    await openUserMenu(page);
     await page.locator('#main-navbar #sign-out-link').click();
     const alert = page.getByRole('alert');
     await expect(alert).toContainText('You have been signed out.');

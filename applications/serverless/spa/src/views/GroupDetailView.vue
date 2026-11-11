@@ -17,6 +17,7 @@ import LinkIdentityModal from '@/components/LinkIdentityModal.vue';
 import PeriodSelector from '@/components/PeriodSelector.vue';
 import { barDataset, CHART_COLORS } from '@/utils/charts';
 import { formatMax, formatPercentage } from '@/utils/format';
+import { periodText } from '@/i18n/periods';
 import { gradeColumns, gradingNotice, MILESTONE_KEYS, milestoneHeader } from '@/utils/grades';
 
 /**
@@ -288,7 +289,7 @@ onMounted(async () => {
 
         <template v-if="report">
           <h5 id="dashboard-title">{{ t('detail.dashboard') }}</h5>
-          <p id="dashboard-summary" class="text-body-secondary small">{{ t('detail.summary', { commits: report.totalCommits, period: report.periodText }) }}</p>
+          <p id="dashboard-summary" class="text-body-secondary small">{{ t('detail.summary', { commits: report.totalCommits, period: periodText(report) }) }}</p>
         </template>
         <div v-if="dashboardAlert" id="dashboard-alert" class="alert mb-4" :class="`alert-${dashboardAlert.type}`" role="alert">{{ dashboardAlert.text }}</div>
         <div v-if="report && notice" id="grading-alert" class="alert alert-info mb-4 small" role="status">{{ notice }}</div>

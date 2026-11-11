@@ -30,7 +30,7 @@ const LATENCY_MS = 250;
 const sessions = new Map<string, string>();   // session id -> login
 
 const isAdmin = (login: string | null) => login === data.ADMIN_LOGIN;
-const me = (login: string) => ({ login, isAdmin: isAdmin(login) });
+const me = (login: string) => ({ login, isAdmin: isAdmin(login), avatarUrl: data.avatar(login) });
 
 function requireAdmin(ctx: Ctx, message: string) {
   if (!isAdmin(ctx.login)) throw new HttpError(403, 'FORBIDDEN', message);
@@ -161,6 +161,7 @@ route('GET', '/api/groups/{id}/commits', (ctx) => {
   return {
     author, period: used,
     periodText: used === 'all' ? 'All history' : m ? `${m.startText} – ${m.endText}` : `${ctx.query.get('since')} – ${ctx.query.get('until')}`,
+    ...data.bounds(used, ctx.query.get('since'), ctx.query.get('until')),
     periodWarning: known ? null : `Unknown period '${period}'. Showing all history instead.`,
     customSince: ctx.query.get('since') ?? '', customUntil: ctx.query.get('until') ?? data.config().customUntil,
     periods: data.periods(), alsoCounted, truncated: false, commits: rows, activity,

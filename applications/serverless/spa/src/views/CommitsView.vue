@@ -10,6 +10,8 @@ import AppBreadcrumb from '@/components/AppBreadcrumb.vue';
 import CommitActivityChart from '@/components/CommitActivityChart.vue';
 import PeriodSelector from '@/components/PeriodSelector.vue';
 import { shortSha } from '@/utils/format';
+import { formatDay, formatTime } from '@/i18n/dates';
+import { periodText } from '@/i18n/periods';
 
 /**
  * Commit history of a student (openspec capability serverless-commit-history-page): commits attributed to the login in the
@@ -102,7 +104,7 @@ onMounted(async () => {
                           :custom-since="history?.customSince ?? query.since" :custom-until="history?.customUntil ?? query.until ?? config?.customUntil"
                           :custom-open="query.period === 'custom'" @custom="applyCustom">
             <template #after-buttons>
-              <div v-if="history" class="form-text" id="period-text">{{ t('commits.periodText', { period: history.periodText }) }}</div>
+              <div v-if="history" class="form-text" id="period-text">{{ t('commits.periodText', { period: periodText(history) }) }}</div>
             </template>
           </PeriodSelector>
         </div>
@@ -136,7 +138,7 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-for="commit in history.commits" :key="commit.sha">
-              <td class="commit-date"><span class="text-nowrap">{{ commit.day }}</span> <span class="text-nowrap">{{ commit.time }}</span></td>
+              <td class="commit-date"><span class="text-nowrap">{{ commit.date ? formatDay(commit.date) : commit.day }}</span> <span class="text-nowrap">{{ commit.date ? formatTime(commit.date) : commit.time }}</span></td>
               <td class="commit-message">
                 <div class="commit-message-text" :title="commit.message">{{ commit.message }}</div>
                 <!-- phones: the Identity column is hidden and the identity (when any) goes below the message -->

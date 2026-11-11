@@ -113,8 +113,9 @@ tests/          testes unitários (Vitest)
 A SPA fala português do Brasil (padrão) e inglês, com o `vue-i18n` (capability `serverless-i18n`).
 
 - **Idioma inicial:** a escolha salva no seletor (`localStorage`, chave `locale`); senão, o primeiro idioma do navegador que for português ou inglês (`navigator.languages`); senão, português. O idioma detectado não é gravado.
-- **Seletor:** "Português" / "English", na navbar e na tela de login. A troca vale na hora, sem recarregar, e atualiza `<html lang>` e o título da aba.
-- **O que não muda com o idioma:** datas, nomes dos marcos e textos de período (vêm formatados do backend) e o CSV das notas.
+- **Seletor:** um botão redondo de duas metades com as bandeiras do Brasil ("Português") e dos Estados Unidos ("English"), em SVG no próprio componente (`LanguageSelector.vue`), na navbar e na tela de login. A troca vale na hora, sem recarregar, e atualiza `<html lang>` e o título da aba.
+- **Marcos, períodos e datas:** a API manda os valores sem formatação (`start`/`end` dos períodos, `since`/`until` dos relatórios, `date` dos commits, `starts`/`total`/`activeDays` do gráfico), e a SPA monta os textos no idioma atual (`src/i18n/periods.ts` e `src/i18n/dates.ts`): "Marco 1", "Tudo", "Começa em 30/10/2026", "Semana de 20/10/2026". Em inglês, os textos são iguais aos que o backend formata. Sem esses campos, a SPA mostra o texto do backend. O `milestone.N.label` de `milestones.properties` não aparece na SPA.
+- **O que não muda com o idioma:** o aviso de período inválido (`periodWarning`) e o CSV das notas.
 - **Erros da API:** traduzidos pelo código ou, quando o código cobre vários casos, pela mensagem em inglês do backend (`src/i18n/apiErrors.ts`). Erro desconhecido mostra a mensagem do backend.
 
 ### Acrescentar um texto
@@ -133,10 +134,10 @@ Todas as rotas ficam sob `/api`, na mesma origem da SPA. Os erros têm sempre o 
 
 | Método e rota | Corpo / parâmetros | Resposta |
 |---|---|---|
-| `GET /api/me` | — | `200 { login, isAdmin }` ou `401` |
+| `GET /api/me` | — | `200 { login, isAdmin, avatarUrl }` ou `401` |
 | `GET /api/auth/github` | — | `302` para o GitHub (com `state`) |
 | `GET /api/auth/callback` | `code`, `state` | `302 /home` com o cookie de sessão, ou `302 /login?error=github_failed` / `github_not_verified` |
-| `POST /api/auth/token` | `{ token }` | `200 { login, isAdmin }` com o cookie; `400` sem token; `401` token recusado; `502` GitHub indisponível |
+| `POST /api/auth/token` | `{ token }` | `200 { login, isAdmin, avatarUrl }` com o cookie; `400` sem token; `401` token recusado; `502` GitHub indisponível |
 | `POST /api/auth/logout` | — | `200`, apaga a sessão; a SPA vai para `/login?signedOut=1` |
 
 ### Autenticadas

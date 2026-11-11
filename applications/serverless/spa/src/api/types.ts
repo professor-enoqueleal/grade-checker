@@ -14,6 +14,8 @@ export interface ApiErrorBody {
 export interface Me {
   login: string;
   isAdmin: boolean;
+  /** GitHub avatar (https://github.com/<login>.png?size=64); absent in older responses */
+  avatarUrl?: string;
 }
 
 /** Period button (Milestone 1/2/3 and All). */
@@ -22,6 +24,9 @@ export interface PeriodOption {
   label: string;        // "Milestone 1", "All"
   enabled: boolean;     // milestones only after they start
   hint: string;         // "Aug 13, 2026 – Sep 17, 2026", "Starts on …", "Not configured"
+  /** raw dates of the milestone (yyyy-MM-dd), null for All or a milestone not configured; the SPA writes the texts */
+  start?: string | null;
+  end?: string | null;
 }
 
 /** Numbers of the pt-BR box "Como as notas são calculadas" (grading.properties + milestones.properties), already formatted. */
@@ -148,6 +153,9 @@ export interface GradingInfo {
 export interface ContributionsReport {
   period: string;
   periodText: string;
+  /** start and end of the period (yyyy-MM-ddTHH:mm in the milestone zone); since is null for All */
+  since?: string | null;
+  until?: string | null;
   totalCommits: number;
   truncated: boolean;
   grading: GradingInfo | null;
@@ -157,6 +165,8 @@ export interface ContributionsReport {
 export interface CommitRow {
   day: string;          // "Oct 22, 2026"
   time: string;         // "11:29"
+  /** raw date and time (yyyy-MM-ddTHH:mm in the milestone zone) */
+  date?: string | null;
   message: string;
   sha: string;
   url: string | null;   // only https://github.com/ links
@@ -172,6 +182,10 @@ export interface CommitActivity {
   labels: string[];
   tooltips: string[];
   series: { key: string; label: string; counts: number[] }[];
+  /** raw first day of each column (yyyy-MM-dd), commits and active days */
+  starts?: string[];
+  total?: number;
+  activeDays?: number;
 }
 
 /** GET /api/groups/{id}/commits?author=&period=&since=&until= */
@@ -179,6 +193,8 @@ export interface CommitHistory {
   author: string;
   period: string;
   periodText: string;
+  since?: string | null;
+  until?: string | null;
   /** invalid period: the backend falls back to All and says why */
   periodWarning: string | null;
   customSince: string;

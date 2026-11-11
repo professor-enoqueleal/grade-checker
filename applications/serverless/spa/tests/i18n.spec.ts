@@ -66,22 +66,27 @@ describe('initial language (openspec capability serverless-i18n)', () => {
 });
 
 describe('language selector', () => {
-  it('Português / English, the current one selected', () => {
+  it('two halves, Brazil (Português) and United States (English), the current one pressed', () => {
     i18n.global.locale.value = 'pt-BR';
     const w = mount(LanguageSelector);
-    expect(w.findAll('option').map((o) => o.text())).toEqual(['Português', 'English']);
-    expect((w.find('select').element as HTMLSelectElement).value).toBe('pt-BR');
-    expect(w.find('select').attributes('aria-label')).toBe('Idioma');
+    const halves = w.findAll('button');
+    expect(halves.map((b) => b.attributes('aria-label'))).toEqual(['Português', 'English']);
+    expect(halves.map((b) => b.attributes('title'))).toEqual(['Português', 'English']);
+    expect(halves.map((b) => b.attributes('aria-pressed'))).toEqual(['true', 'false']);
+    expect(halves.map((b) => b.find('svg').exists())).toEqual([true, true]);
+    expect(w.find('#language-selector').attributes('aria-label')).toBe('Idioma');
   });
 
   it('a change applies at once, is saved and sets <html lang>', async () => {
     i18n.global.locale.value = 'pt-BR';
     const w = mount(LanguageSelector);
-    await w.find('select').setValue('en');
+    await w.find('#language-en').trigger('click');
     expect(i18n.global.locale.value).toBe('en');
     expect(localStorage.getItem(LOCALE_KEY)).toBe('en');
     expect(document.documentElement.getAttribute('lang')).toBe('en');
-    expect(w.find('select').attributes('aria-label')).toBe('Language');
+    expect(w.find('#language-selector').attributes('aria-label')).toBe('Language');
+    expect(w.find('#language-en').attributes('aria-pressed')).toBe('true');
+    expect(w.find('#language-pt-BR').attributes('aria-pressed')).toBe('false');
 
     useLocale().set('pt-BR');
     expect(localStorage.getItem(LOCALE_KEY)).toBe('pt-BR');

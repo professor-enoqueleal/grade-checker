@@ -19,7 +19,7 @@ const { t, locale } = useI18n();
 
       <h6>{{ t('gx.milestones') }}</h6>
       <ul id="grading-explanation-milestones">
-        <li v-for="m in gx.milestones" :key="m.label">{{ t('gx.milestone', { label: m.label, start: m.start, end: m.end }) }}</li>
+        <li v-for="(m, i) in gx.milestones" :key="i">{{ t('gx.milestone', { label: t('period.milestone', { n: i + 1 }), start: m.start, end: m.end }) }}</li>
       </ul>
       <p>{{ t('gx.points', { max: gx.maxPoints, total: gx.totalPoints }) }}</p>
 

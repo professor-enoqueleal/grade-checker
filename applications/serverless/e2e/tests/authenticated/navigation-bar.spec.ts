@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { githubToken, groupId, skipWithoutToken } from '../../support/env';
+import { openUserMenu } from '../../support/navbar';
 
 /** Capability navigation-bar of the SPA. Never clicks "Sign out": the session is shared. */
 test.describe('Navigation bar', () => {
@@ -47,9 +48,24 @@ test.describe('Navigation bar', () => {
         }
       }
 
-      // login and Sign out for everybody
-      await expect(navbar.locator('#navbar-user')).not.toBeEmpty();
+      // user menu for everybody, top right: avatar and login; inside, the login, the role and Sign out
+      const login = (await navbar.locator('#navbar-user').textContent())!.trim();
+      expect(login).not.toBe('');
+      await expect(navbar.locator('#navbar-avatar')).toHaveAttribute('src', `https://github.com/${login}.png?size=64`);
+      await expect(navbar.locator('#sign-out-link')).toBeHidden();
+      const userMenu = (await navbar.locator('#user-menu').boundingBox())!;
+      const bar = (await navbar.boundingBox())!;
+      expect(userMenu.x + userMenu.width, url).toBeGreaterThan(bar.x + bar.width * 0.75);
+      // the flags just left of the user menu, on the same line
+      const flags = (await navbar.locator('#language-selector').boundingBox())!;
+      expect(flags.x + flags.width, url).toBeLessThanOrEqual(userMenu.x);
+      expect(flags.x, url).toBeGreaterThan(bar.x + bar.width * 0.6);
+      await openUserMenu(page);
+      await expect(navbar.locator('#user-menu-signed-in')).toHaveText(`Signed in as ${login}`);
+      await expect(navbar.locator('#user-menu-role')).toHaveText(admin ? 'Administrator' : 'Student');
       await expect(navbar.locator('#sign-out-link')).toHaveText('Sign out');   // POST /api/auth/logout on click
+      await page.keyboard.press('Escape');
+      await expect(navbar.locator('#user-menu-items')).toBeHidden();
 
       // the breadcrumb is still there, below the navbar
       const nav = (await navbar.boundingBox())!;
@@ -83,11 +99,19 @@ test.describe('Navigation bar', () => {
       await expect(toggler, url).toBeVisible();
       await expect(toggler).toHaveAttribute('aria-label', 'Toggle navigation');
       await expect(page.locator('#sign-out-link')).toBeHidden();
+      // the flags stay in the bar, next to the menu button, with the menu closed
+      const flags = (await page.locator('#language-selector').boundingBox())!;
+      const button = (await toggler.boundingBox())!;
+      expect(flags.x + flags.width, url).toBeLessThanOrEqual(button.x);
+      expect(Math.abs((flags.y + flags.height / 2) - (button.y + button.height / 2)), url).toBeLessThan(4);
 
-      // opens
+      // opens one menu: the user items are plain lines of it, with no user button (no menu inside the menu)
       await toggler.click();
       await expect(page.locator('#sign-out-link'), `${url} open`).toBeVisible();
-      await expect(page.locator('#navbar-user')).toBeVisible();
+      await expect(page.locator('#user-menu-signed-in')).toBeVisible();
+      await expect(page.locator('#user-menu-role')).toHaveText(admin ? 'Administrator' : 'Student');
+      await expect(page.locator('#user-menu')).toBeHidden();
+      await expect(page.locator('#language-selector')).toBeVisible();
       if (admin) {
         await expect(page.locator('#manage-groups-link')).toBeVisible();
         await expect(page.locator('#class-grades-link')).toBeVisible();

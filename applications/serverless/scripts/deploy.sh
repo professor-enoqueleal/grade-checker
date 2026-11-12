@@ -64,8 +64,13 @@ param DomainName "${APP_DOMAIN:-}"
 param CertificateArn "${APP_CERTIFICATE_ARN:-}"
 param SessionIdleMinutes "${SESSION_IDLE_MINUTES:-30}"
 param SessionMaxHours "${SESSION_MAX_HOURS:-8}"
-# hash of the values above: any change publishes a new version of the function (template, AutoPublishCodeSha256)
-param ConfigurationHash "$(shasum -a 256 "$PARAMS" | cut -c1-16)"
+# hash of the values above and of the built function: a change of configuration or of code publishes a new version of
+# the function and moves the alias live to it (template, AutoPublishCodeSha256). AutoPublishCodeSha256 replaces the hash
+# of the code that SAM would use, so the code must be in it: without it, a release that only changes code updates
+# $LATEST and leaves the alias, called by the API, on the old version.
+CODE_HASH=$(cd .aws-sam/build/ApiFunction && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256 \
+  | shasum -a 256 | cut -c1-16)
+param ConfigurationHash "$({ cat "$PARAMS"; echo "code $CODE_HASH"; } | shasum -a 256 | cut -c1-16)"
 # stack tags: CloudFormation copies them to every resource that supports tags (reports and cost allocation)
 sam deploy --stack-name "$STACK" --region "$REGION" \
   --parameter-overrides "file://$PARAMS" \

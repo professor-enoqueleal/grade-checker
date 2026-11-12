@@ -65,8 +65,9 @@ Parameters:
     Type: String
     Default: ''
     Description: >-
-      Hash of the configuration (set by scripts/deploy.sh). A new value publishes a new version of the function, so a
-      change only of parameters (administrators, client ID...) reaches the alias called by the API
+      Hash of the configuration and of the built function (set by scripts/deploy.sh). A new value publishes a new version
+      of the function, so a change only of parameters (administrators, client ID...) or only of code reaches the alias
+      called by the API
   DataTableDeletionPolicy:
     Type: String
     Default: Delete
@@ -149,9 +150,9 @@ Resources:
       Handler: br.com.gradechecker.lambda.ApplicationHandler::handleRequest
       Description: Grade Checker API (/api/*)
       AutoPublishAlias: live
-      # a new version (and SnapStart snapshot) when the template of the function changes (AllProperties) or when only
-      # parameter values change (ConfigurationHash, resolved with the real values): without it, the alias called by
-      # the API would keep the version with the old environment variables
+      # a new version (and SnapStart snapshot) when the template of the function changes (AllProperties), when only
+      # parameter values change or when the code changes (ConfigurationHash, resolved with the real values, hashes the
+      # parameters and the built function: it replaces the hash of the code that SAM would use)
       AutoPublishAliasAllProperties: true
       AutoPublishCodeSha256: !Ref ConfigurationHash
       ReservedConcurrentExecutions: !If [HasMaxConcurrency, !Ref MaxConcurrency, !Ref AWS::NoValue]

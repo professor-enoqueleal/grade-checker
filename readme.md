@@ -68,3 +68,4 @@ Os administradores veem na barra de navegação os links **Manage groups** e **C
 - [Configuração](docs/configuracao.md): GitHub App, administradores, marcos, regras da nota, dashboard e cache.
 - [Deploy](docs/deploy.md): Docker, AWS (CloudFormation) e controle do cache em produção.
 - [API](docs/api.md): rotas usadas pelas telas, erros e API administrativa do cache.
+- [Arquitetura AWS](docs/arquitetura-aws.md): diagramas da versão serverless (CloudFront, S3, API Gateway, Lambda, DynamoDB), do login, de uma requisição e do deploy.
